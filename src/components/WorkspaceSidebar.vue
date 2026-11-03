@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  CopyCheck,
   Download,
   FolderOpen,
   GitBranch,
@@ -91,6 +92,7 @@ const navGroups = [
     items: [
       {id: 'replace', label: '텍스트 치환(Replace)', icon: Replace},
       {id: 'inspect', label: '유의어 점검(Inspect)', icon: ScanSearch},
+      {id: 'duplicate', label: '중복 확인(Duplicate)', icon: CopyCheck},
     ],
   },
   {

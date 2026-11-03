@@ -16,6 +16,7 @@ import ExportSection from '../sections/ExportSection.vue'
 import ChecklistSection from '../sections/ChecklistSection.vue'
 import ReplaceSection from '../sections/ReplaceSection.vue'
 import InspectSection from '../sections/InspectSection.vue'
+import DuplicateSection from '../sections/DuplicateSection.vue'
 import SnapshotModal from '../components/SnapshotModal.vue'
 import SettingsSection from '../sections/SettingsSection.vue'
 import UpdateSection from '../sections/UpdateSection.vue'
@@ -39,6 +40,7 @@ const sectionMap = {
   checklist: ChecklistSection,
   replace: ReplaceSection,
   inspect: InspectSection,
+  duplicate: DuplicateSection,
   settings: SettingsSection,
   update: UpdateSection,
 }

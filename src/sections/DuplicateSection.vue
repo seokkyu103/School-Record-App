@@ -1,0 +1,226 @@
+<script setup>
+import {computed, onMounted, ref} from 'vue'
+import {AlertTriangle, ChevronDown, ChevronRight, CopyCheck, Loader2} from '@lucide/vue'
+import {useAreaStore} from '../stores/area'
+import {useSynonymStore} from '../stores/synonymStore'
+import {DEFAULT_SIMILARITY_OPTIONS, findSimilarities} from '../services/similarity'
+import DiffView from '../components/DiffView.vue'
+
+// 학생 간 중복 확인(고양외고 25기 1학년부 판). 판정은 services/similarity.ts.
+// 기록은 유의어 점검과 같은 조회(get_all_records_for_inspect)로 읽는다 — 영역 배정까지 반영된 목록이다.
+
+const areaStore = useAreaStore()
+const synonymStore = useSynonymStore()
+
+const areaId = ref(0)          // 0 = 모든 영역
+const unit = ref('activity')   // 'activity' | 'area'
+const thresholdPct = ref(Math.round(DEFAULT_SIMILARITY_OPTIONS.threshold * 100))
+const commonMin = ref(DEFAULT_SIMILARITY_OPTIONS.commonMinStudents)
+const includeCommon = ref(false)
+
+const loading = ref(false)
+const error = ref('')
+const result = ref(null)
+const showCommon = ref(false)
+const openPairs = ref(new Set())
+
+onMounted(async () => {
+  try {
+    await areaStore.fetchAreas()
+  } catch (e) {
+    error.value = '영역 목록을 읽지 못했습니다: ' + String(e)
+  }
+})
+
+const KIND_LABEL = {exact: '완전 일치', similar: '유사', sentence: '같은 문장'}
+const KIND_CLASS = {
+  exact: 'text-red bg-red/[0.10] border-red/30',
+  similar: 'text-amber bg-amber/[0.10] border-amber/30',
+  sentence: 'text-blue-2 bg-blue/[0.10] border-blue/30',
+}
+
+const counts = computed(() => {
+  const c = {exact: 0, similar: 0, sentence: 0}
+  for (const p of result.value?.pairs ?? []) c[p.kind]++
+  return c
+})
+
+const validOptions = computed(() =>
+    Number.isFinite(thresholdPct.value) && thresholdPct.value >= 50 && thresholdPct.value <= 100 &&
+    Number.isInteger(commonMin.value) && commonMin.value >= 2
+)
+
+async function run() {
+  if (!validOptions.value) return
+  loading.value = true
+  error.value = ''
+  result.value = null
+  openPairs.value = new Set()
+  try {
+    const ids = areaId.value ? [areaId.value] : areaStore.areas.map(a => a.id)
+    await synonymStore.fetchRecords('areas', ids)
+    const records = synonymStore.records.map(r => ({
+      group: unit.value === 'area' ? r.area_name : `${r.area_name} · ${r.activity_name}`,
+      studentKey: `${r.grade}-${r.class_num}-${r.number}`,
+      studentLabel: `${r.class_num}반 ${r.number}번 ${r.student_name}`,
+      content: r.content,
+    }))
+    result.value = findSimilarities(records, {
+      threshold: thresholdPct.value / 100,
+      commonMinStudents: commonMin.value,
+      includeCommon: includeCommon.value,
+    })
+  } catch (e) {
+    error.value = '기록을 읽지 못했습니다: ' + String(e)
+  } finally {
+    loading.value = false
+  }
+}
+
+function togglePair(i) {
+  const s = new Set(openPairs.value)
+  if (s.has(i)) s.delete(i)
+  else s.add(i)
+  openPairs.value = s
+}
+
+/** 글에서 겹친 문장을 표시하기 위해 조각으로 나눈다. */
+function segments(text, matched) {
+  if (!matched.length) return [{text, hit: false}]
+  const out = []
+  let rest = text
+  while (rest) {
+    let best = null
+    for (const m of matched) {
+      const i = rest.indexOf(m)
+      if (i >= 0 && (!best || i < best.i)) best = {i, m}
+    }
+    if (!best) { out.push({text: rest, hit: false}); break }
+    if (best.i > 0) out.push({text: rest.slice(0, best.i), hit: false})
+    out.push({text: best.m, hit: true})
+    rest = rest.slice(best.i + best.m.length)
+  }
+  return out
+}
+</script>
+
+<template>
+  <div class="flex flex-col h-full overflow-hidden box-border">
+    <div class="flex items-center justify-between px-10 pt-9 pb-6 border-b border-line shrink-0">
+      <div class="flex flex-col">
+        <h2 class="text-[22px] font-bold text-ink m-0 mb-1.5">학생 간 중복 확인(Duplicate)</h2>
+        <p class="text-base text-ink-3 m-0">같은 활동에서 학생끼리 같거나 어미·조사만 바꾼 문장을 찾습니다. 여러 학생에게 공통인 소개 문장은 따로 묶어 기본으로 경고에서 뺍니다.</p>
+      </div>
+    </div>
+
+    <div class="flex-1 overflow-y-auto px-10 py-8">
+      <!-- 조건 -->
+      <div class="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 items-center mb-6 text-base">
+        <label class="text-ink-4">영역</label>
+        <select v-model="areaId" class="py-[7px] px-2.5 bg-surface border border-line rounded-lg text-ink text-base outline-none w-fit">
+          <option :value="0">모든 영역</option>
+          <option v-for="a in areaStore.areas" :key="a.id" :value="a.id">{{ a.name }}</option>
+        </select>
+
+        <label class="text-ink-4">비교 단위</label>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" value="activity" v-model="unit" class="accent-blue">활동별</label>
+          <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" value="area" v-model="unit" class="accent-blue">영역별(활동 합쳐서)</label>
+        </div>
+
+        <label class="text-ink-4">유사 기준</label>
+        <div class="flex items-center gap-2">
+          <input type="number" min="50" max="100" v-model.number="thresholdPct" class="w-20 py-[5px] px-2 bg-surface border border-line rounded-lg text-ink text-base">
+          <span class="text-ink-5">% 이상 (높일수록 거의 같은 것만)</span>
+        </div>
+
+        <label class="text-ink-4">공통 문구</label>
+        <div class="flex items-center gap-2 flex-wrap">
+          <input type="number" min="2" v-model.number="commonMin" class="w-20 py-[5px] px-2 bg-surface border border-line rounded-lg text-ink text-base">
+          <span class="text-ink-5">명 이상에게 같은 문장</span>
+          <label class="flex items-center gap-1.5 cursor-pointer ml-3"><input type="checkbox" v-model="includeCommon" class="accent-blue">공통 문구도 경고에 넣기</label>
+        </div>
+      </div>
+
+      <button
+          class="inline-flex items-center gap-2 py-2.5 px-6 bg-blue/[0.15] border border-blue/40 rounded-lg text-blue-2 text-base font-semibold cursor-pointer transition-colors enabled:hover:bg-blue/25 disabled:opacity-40 disabled:cursor-not-allowed"
+          :disabled="loading || !validOptions"
+          @click="run"
+      >
+        <Loader2 v-if="loading" :size="15" class="animate-spin"/>
+        <CopyCheck v-else :size="15"/>
+        {{ loading ? '확인 중...' : '중복 확인' }}
+      </button>
+      <p v-if="!validOptions" class="text-base text-red mt-2">유사 기준은 50~100, 공통 문구는 2명 이상으로 정해 주세요.</p>
+      <p v-if="error" class="text-base text-red mt-3">{{ error }}</p>
+
+      <template v-if="result">
+        <div class="flex gap-2.5 my-6 flex-wrap">
+          <!-- badge: 결과 통계 -->
+          <span class="text-sm font-semibold py-1 px-2.5 rounded-[6px] border" :class="KIND_CLASS.exact">완전 일치 {{ counts.exact }}쌍</span>
+          <span class="text-sm font-semibold py-1 px-2.5 rounded-[6px] border" :class="KIND_CLASS.similar">유사 {{ counts.similar }}쌍</span>
+          <span class="text-sm font-semibold py-1 px-2.5 rounded-[6px] border" :class="KIND_CLASS.sentence">같은 문장 {{ counts.sentence }}쌍</span>
+          <span class="text-sm font-semibold py-1 px-2.5 rounded-[6px] border text-ink-5 bg-line/20 border-line">공통 문구 {{ result.common.length }}개</span>
+        </div>
+
+        <!-- 공통 문구 -->
+        <div v-if="result.common.length" class="border border-line rounded-[10px] mb-6 overflow-hidden">
+          <button class="w-full flex items-center gap-2 py-2.5 px-4 bg-surface border-none text-base text-ink-2 cursor-pointer text-left" @click="showCommon = !showCommon">
+            <component :is="showCommon ? ChevronDown : ChevronRight" :size="16"/>
+            공통 문구 {{ result.common.length }}개 — {{ includeCommon ? '경고에 넣었습니다' : '경고에서 뺐습니다' }}
+          </button>
+          <ul v-if="showCommon" class="m-0 py-3 pl-10 pr-4 flex flex-col gap-1.5 text-base text-ink-3">
+            <li v-for="(c, i) in result.common" :key="i">
+              <span class="text-ink-5">[{{ c.group }} · {{ c.studentCount }}명]</span> {{ c.sentence }}
+            </li>
+          </ul>
+        </div>
+
+        <div v-if="result.pairs.length === 0"
+             class="flex flex-col items-center gap-2 py-14 text-center border border-dashed border-green/20 bg-green/[0.03] rounded-lg">
+          <CopyCheck :size="40" class="text-green/40"/>
+          <p class="text-lg font-semibold text-green m-0">겹치는 학생이 없습니다</p>
+        </div>
+
+        <div v-else class="flex flex-col gap-3">
+          <div v-for="(p, i) in result.pairs" :key="i" class="border border-line rounded-[10px] overflow-hidden">
+            <button class="w-full flex items-center gap-2.5 py-2.5 px-4 bg-surface border-none text-base text-ink-2 cursor-pointer text-left" @click="togglePair(i)">
+              <component :is="openPairs.has(i) ? ChevronDown : ChevronRight" :size="16" class="shrink-0"/>
+              <!-- badge: 쌍 종류 -->
+              <span class="text-sm font-semibold py-0.5 px-2 rounded-[6px] border whitespace-nowrap" :class="KIND_CLASS[p.kind]">{{ KIND_LABEL[p.kind] }}</span>
+              <span class="font-semibold">{{ p.a.label }}</span><span class="text-ink-5">↔</span><span class="font-semibold">{{ p.b.label }}</span>
+              <span class="text-ink-5 ml-auto whitespace-nowrap">{{ p.group }} · 유사 {{ Math.round(p.score * 100) }}%</span>
+            </button>
+            <div v-if="openPairs.has(i)" class="border-t border-line">
+              <div class="grid grid-cols-2">
+                <div class="py-3 px-4 text-base text-ink-2 leading-relaxed whitespace-pre-wrap break-all">
+                  <template v-for="(s, k) in segments(p.a.text, p.matches.map(m => m.a))" :key="k">
+                    <mark v-if="s.hit" class="bg-amber/25 text-ink rounded-sm">{{ s.text }}</mark><template v-else>{{ s.text }}</template>
+                  </template>
+                </div>
+                <div class="py-3 px-4 border-l border-line text-base text-ink-2 leading-relaxed whitespace-pre-wrap break-all">
+                  <template v-for="(s, k) in segments(p.b.text, p.matches.map(m => m.b))" :key="k">
+                    <mark v-if="s.hit" class="bg-amber/25 text-ink rounded-sm">{{ s.text }}</mark><template v-else>{{ s.text }}</template>
+                  </template>
+                </div>
+              </div>
+              <!-- 겹친 문장마다 다른 부분만 표시(빨강: 왼쪽에만, 초록: 오른쪽에만) -->
+              <div v-if="p.matches.some(m => m.a !== m.b)" class="border-t border-line py-3 px-4 flex flex-col gap-2 bg-surface/60">
+                <p class="text-base text-ink-5 m-0">겹친 문장에서 다른 부분 (빨강: {{ p.a.label }}에만, 초록: {{ p.b.label }}에만)</p>
+                <div v-for="(m, k) in p.matches.filter(m => m.a !== m.b)" :key="k" class="text-base">
+                  <DiffView :before="m.a" :after="m.b"/>
+                  <span class="text-ink-5 ml-2">({{ Math.round(m.score * 100) }}%)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="flex items-start gap-2 text-base text-ink-5 mt-6">
+          <AlertTriangle :size="16" class="shrink-0 mt-1"/>
+          찾은 쌍은 확인할 후보입니다. 같은 행사에 함께 참여해 비슷하게 쓸 수밖에 없는 경우도 있으니 직접 읽고 판단해 주세요.
+        </p>
+      </template>
+    </div>
+  </div>
+</template>
