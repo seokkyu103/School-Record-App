@@ -1,0 +1,12 @@
+{
+  "fileName": "2026_{grade}-{class}_생기부.db",
+  "areas": [
+    { "name": "자율·자치활동", "byteLimit": 1500, "activities": ["담임 기록(자율·자치)"] },
+    { "name": "동아리활동", "byteLimit": 1500, "activities": ["동아리 기록"] },
+    { "name": "진로활동", "byteLimit": 1500, "activities": ["담임 기록(진로)"] },
+    { "name": "행동특성 및 종합의견", "byteLimit": 900, "activities": ["행동특성 및 종합의견"] }
+  ],
+  "checkGroups": [
+    { "name": "학교공통 예시", "words": ["TOEIC", "경시대회"] }
+  ]
+}

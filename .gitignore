@@ -25,3 +25,6 @@ dist-ssr
 
 *.db
 .claude/
+# 학년부 도구 결과(실제 학생 이름)가 저장소에 들어가지 않게
+tools/**/*.xlsx
+tools/**/*.json.local
