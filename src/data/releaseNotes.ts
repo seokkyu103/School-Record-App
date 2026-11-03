@@ -10,6 +10,13 @@
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '0.3.1-g25.2',
+    date: '2026-11-03',
+    features: [
+      '중복 확인(Duplicate): 같은 활동(또는 영역)에서 학생끼리 같거나 어미·조사만 바꾼 글, 그대로 옮긴 문장을 쌍으로 찾습니다. 여러 학생에게 같은 행사 소개 문장은 공통 문구로 따로 모아 기본으로 경고에서 뺍니다.',
+    ],
+  },
+  {
     version: '0.3.1-g25.1',
     date: '2026-11-03',
     features: [
