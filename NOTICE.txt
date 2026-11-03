@@ -1,0 +1,18 @@
+All-in-One 학교생활기록부 에디터 — 고양외고 25기 1학년부 판
+
+이 프로그램은 itmir913(luminousky)이 만든 "All-in-One 학교생활기록부 에디터"를
+학년 내부 배포용으로 고친 판입니다.
+
+원본: https://github.com/itmir913/School-Record-App
+이 판: https://github.com/seokkyu103/School-Record-App
+
+Copyright 2026 itmir913 (luminousky.com)
+
+라이선스: PolyForm Noncommercial License 1.0.0
+  - 전문: 함께 든 LICENSE.md, 또는 https://polyformproject.org/licenses/noncommercial/1.0.0
+  - 저작권자의 추가 조건: https://github.com/itmir913/School-Record-App#라이선스
+    교육·비상업 목적으로만 쓸 수 있습니다. 판매, 유료 서비스, 학원 등 영리 목적의
+    사용은 허용되지 않습니다.
+
+이 판은 원본 개발자가 만들거나 지원하는 판이 아닙니다. 이 판에 대한 문의는 원본
+개발자가 아니라 배포한 학년부 담당 교사에게 해 주세요.

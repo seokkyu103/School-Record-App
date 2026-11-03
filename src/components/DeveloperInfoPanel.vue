@@ -2,6 +2,7 @@
 import {ref} from 'vue'
 import {openUrl} from '@tauri-apps/plugin-opener'
 import {Code, Copy, ExternalLink, ShieldCheck} from '@lucide/vue'
+import {EDITION} from '../data/edition'
 
 const HOMEPAGE = 'https://luminousky.com/teacher-utility-kit/neis-editor/'
 const REPOSITORY = 'https://github.com/itmir913/School-Record-App'
@@ -38,10 +39,18 @@ async function copyEmail() {
 <template>
   <div class="flex flex-col gap-4">
     <dl class="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2.5 m-0 text-base">
-      <dt class="text-ink-4 m-0">개발자</dt>
+      <!-- 배포판 표시: 원본을 고친 판임을 알리고, 이 판의 문의가 원본 개발자에게 가지 않게 한다 -->
+      <dt class="text-ink-4 m-0">배포판</dt>
+      <dd class="text-ink-2 m-0 leading-relaxed">
+        {{ EDITION.name }}<br>
+        <span class="text-ink-4">원본: <span class="select-text break-all">{{ EDITION.upstreamRepository }}</span></span><br>
+        <span class="text-ink-4">이 판에 대한 문의는 학년부 담당 교사에게 해 주세요.</span>
+      </dd>
+
+      <dt class="text-ink-4 m-0">원본 개발자</dt>
       <dd class="text-ink-2 m-0">luminousky</dd>
 
-      <dt class="text-ink-4 m-0">문의</dt>
+      <dt class="text-ink-4 m-0">원본 문의</dt>
       <dd class="text-ink-2 m-0 flex items-center gap-2.5 flex-wrap">
         <span class="select-text break-all">{{ CONTACT_EMAIL }}</span>
         <button
@@ -74,7 +83,14 @@ async function copyEmail() {
           @click="open(REPOSITORY)"
       >
         <Code :size="15"/>
-        GitHub
+        원본 GitHub
+      </button>
+      <button
+          class="flex items-center gap-2 py-2.5 px-3.5 rounded-btn border border-line bg-transparent text-base text-ink-3 cursor-pointer transition-colors hover:bg-line hover:text-ink"
+          @click="open(EDITION.repository)"
+      >
+        <Code :size="15"/>
+        이 판 GitHub
       </button>
       <button
           class="flex items-center gap-2 py-2.5 px-3.5 rounded-btn border border-line bg-transparent text-base text-ink-3 cursor-pointer transition-colors hover:bg-line hover:text-ink"

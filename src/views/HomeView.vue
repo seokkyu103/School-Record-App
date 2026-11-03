@@ -10,6 +10,7 @@ import ReleaseNotesModal from '../components/ReleaseNotesModal.vue'
 import UpdateModal from '../components/UpdateModal.vue'
 import {useUpdateStore} from '../stores/updateStore.js'
 import {getNotesToShow} from '../data/releaseNotes'
+import {EDITION} from '../data/edition'
 
 const router = useRouter()
 const project = useProjectStore()
@@ -285,7 +286,7 @@ function handlePasswordCancel() {
         </transition>
 
         <p class="version">
-          v{{ update.currentVersion }} |
+          v{{ update.currentVersion }} · {{ EDITION.name }} |
           <a href="https://github.com/itmir913/School-Record-App/#%EB%9D%BC%EC%9D%B4%EC%84%A0%EC%8A%A4" target="_blank">
             <u>Educational Use Only</u>
           </a>

@@ -1,8 +1,10 @@
 import {defineStore} from 'pinia'
 import {ref} from 'vue'
 import {getVersion} from '@tauri-apps/api/app'
+import {EDITION} from '../data/edition'
 
-const RELEASES_API = 'https://api.github.com/repos/itmir913/School-Record-App/releases/latest'
+// 이 판의 저장소를 본다(data/edition.ts). 원본을 보면 원본 새 버전을 설치하면서 이 판의 수정이 사라진다.
+const RELEASES_API = EDITION.releasesApi
 const REQUEST_TIMEOUT_MS = 10_000
 
 /**
