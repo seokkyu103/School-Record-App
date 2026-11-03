@@ -4,6 +4,9 @@ import {save} from '@tauri-apps/plugin-dialog'
 import {useActivityStore} from '../stores/activity.js'
 import {useRecordStore} from '../stores/record.js'
 import {useFileStore} from '../stores/file.js'
+import {useAreaStore} from '../stores/area.js'
+import {useStudentStore} from '../stores/student.js'
+import {classifyChange, findLastImported, findNameMismatches} from '../services/importGuard'
 import {AlertTriangle, Download, FileSpreadsheet} from '@lucide/vue'
 import {RECORD_COL_ALIASES, STUDENT_COL_ALIASES} from '../data/columnAliases'
 import {isValidIdentityPart, parseStudentId} from '../services/studentId'
@@ -18,6 +21,8 @@ import {SAMPLE_A_ROWS, SAMPLE_B_COLS, SAMPLE_B_ROWS} from '../data/sampleImportD
 const activityStore = useActivityStore()
 const recordStore = useRecordStore()
 const fileStore = useFileStore()
+const areaStore = useAreaStore()
+const studentStore = useStudentStore()
 
 const COL_ALIASES = {...STUDENT_COL_ALIASES, ...RECORD_COL_ALIASES}
 
@@ -53,10 +58,15 @@ const colMap = ref({
 
 const activityMatchMap = ref({})
 const dbActivities = ref([])
+// 새로 만들 활동을 연결할 영역(활동명 → 영역 id, 0 = 연결 안 함).
+// 연결하지 않은 활동은 기록 화면에 나타나지 않아 담임이 영역 관리에서 따로 붙여야 했다.
+const newActivityAreaMap = ref({})
+const dbAreas = ref([])
 
 const importing = ref(false)
 const importResult = ref(null)
 const importError = ref('')
+const areaLinkError = ref('')
 const isNavigating = ref(false)
 
 // ── Diff 미리보기 상태 ────────────────────────────────────────
@@ -68,6 +78,12 @@ const diffViewMode = ref('raw')
 const pendingRecords = ref([])
 // 학번을 해석하지 못해 임포트에서 빠진 행 수. 0이 아니면 사용자에게 알린다.
 const skippedRowCount = ref(0)
+// 바뀌는 칸마다 { kind: 'source-updated' | 'teacher-edited', lastImported } (services/importGuard.ts)
+const changeMeta = ref({})
+// 파일의 이름과 프로젝트의 이름이 다른 학생
+const nameMismatches = ref([])
+// 담임 수정 판정에 필요한 버전 기록을 읽지 못했을 때의 안내. 이때는 모두 담임 수정으로 본다.
+const guardError = ref('')
 
 // ── Computed ──────────────────────────────────────────────────
 
@@ -144,6 +160,12 @@ const newPreviewItemsCount = computed(() =>
 )
 const unchangedCount = computed(() =>
     previewItems.value.filter(item => item.existing_content !== '' && item.existing_content === item.new_content).length
+)
+const teacherEditedCount = computed(() =>
+    changedPreviewItems.value.filter(item => changeMeta.value[item.key]?.kind !== 'source-updated').length
+)
+const newActivityNames = computed(() =>
+    extractedActivities.value.filter(name => activityMatchMap.value[name] === 0)
 )
 const checkedChangedCount = computed(() =>
     changedPreviewItems.value.filter(item => checkedKeys.value.has(item.key)).length
@@ -323,16 +345,27 @@ async function loadDbActivities() {
     dbActivities.value = activityStore.activities.map(a => ({id: a.id, name: a.name}))
   } catch (e) {
     importError.value = '활동 목록 로드 실패: ' + String(e)
+    return
+  }
+  try {
+    await areaStore.fetchAreas()
+    dbAreas.value = areaStore.areas.map(a => ({id: a.id, name: a.name}))
+  } catch (e) {
+    importError.value = '영역 목록 로드 실패: ' + String(e)
   }
 }
 
 function initActivityMatchMap() {
   const map = {}
+  const areaMap = {}
   for (const actName of extractedActivities.value) {
     const match = dbActivities.value.find(a => a.name === actName)
     map[actName] = match ? match.id : 0
+    // 영역이 하나뿐이면 고를 것이 없으니 미리 골라 둔다. 여럿이면 담임이 고른다.
+    areaMap[actName] = newActivityAreaMap.value[actName] ?? (dbAreas.value.length === 1 ? dbAreas.value[0].id : 0)
   }
   activityMatchMap.value = map
+  newActivityAreaMap.value = areaMap
 }
 
 // ── Diff 미리보기 로드 ────────────────────────────────────────
@@ -354,6 +387,41 @@ function toggleItem(key) {
   checkedKeys.value = s
 }
 
+// 바뀌는 칸마다 직전에 가져온 내용을 버전 기록에서 찾아 "수합본만 바뀜/담임 수정"을 가른다.
+// 이름 대조도 여기서 한다(같은 학생 목록이 필요하다).
+// 실패해도 미리보기를 막지 않는다 — 모든 칸을 담임 수정으로 보아(덮어쓰지 않는 쪽) 안내만 띄운다.
+async function buildChangeMeta(changedItems) {
+  const meta = {}
+  for (const item of changedItems) meta[item.key] = {kind: 'teacher-edited', lastImported: null}
+
+  let students
+  try {
+    await studentStore.fetchStudents()
+    students = studentStore.students
+  } catch (e) {
+    guardError.value = '학생 목록을 읽지 못해 담임 수정 여부와 이름을 확인하지 못했습니다. 바뀌는 칸은 모두 체크하지 않았습니다. (' + String(e) + ')'
+    return meta
+  }
+
+  nameMismatches.value = findNameMismatches(pendingRecords.value, students)
+
+  const idOf = new Map(students.map(s => [`${s.grade}-${s.class_num}-${s.number}`, s.id]))
+  try {
+    for (const item of changedItems) {
+      const studentId = idOf.get(`${item.grade}-${item.class_num}-${item.number}`)
+      if (studentId === undefined) continue
+      const history = await recordStore.fetchRecordHistory({
+        activityId: item.activity_id, studentId, limit: 50, offset: 0,
+      })
+      const lastImported = findLastImported(history)
+      meta[item.key] = {kind: classifyChange(item.existing_content, lastImported), lastImported}
+    }
+  } catch (e) {
+    guardError.value = '버전 기록을 읽지 못해 담임 수정 여부를 일부 확인하지 못했습니다. 확인하지 못한 칸은 체크하지 않았습니다. (' + String(e) + ')'
+  }
+  return meta
+}
+
 async function loadPreview() {
   previewLoading.value = true
   previewError.value = ''
@@ -361,6 +429,9 @@ async function loadPreview() {
   checkedKeys.value = new Set()
   pendingRecords.value = []
   skippedRowCount.value = 0
+  changeMeta.value = {}
+  nameMismatches.value = []
+  guardError.value = ''
 
   try {
     const m = colMap.value
@@ -458,11 +529,15 @@ async function loadPreview() {
 
     previewItems.value = allItems
 
+    const changed = allItems.filter(item => item.existing_content !== '' && item.existing_content !== item.new_content)
+    const meta = await buildChangeMeta(changed)
+    changeMeta.value = meta
+
+    // 기본으로 체크하는 것은 "수합본만 바뀐 칸"뿐이다. 담임이 고친 칸은 담임이 직접 골라야
+    // 덮어쓴다. 체크하지 않은 칸도 가져오기 전 내용이 버전 기록에 남는 것은 그대로다.
     const initChecked = new Set()
-    for (const item of allItems) {
-      if (item.existing_content !== '' && item.existing_content !== item.new_content) {
-        initChecked.add(item.key)
-      }
+    for (const item of changed) {
+      if (meta[item.key]?.kind === 'source-updated') initChecked.add(item.key)
     }
     checkedKeys.value = initChecked
 
@@ -526,6 +601,23 @@ async function doImport() {
     }
 
     importResult.value = await recordStore.bulkImportRecords(records)
+
+    // 기록을 넣은 뒤에 영역을 연결한다. 연결이 실패해도 가져온 기록은 그대로이므로
+    // 가져오기 실패로 알리지 않고, 결과 화면에서 직접 연결하도록 안내한다.
+    areaLinkError.value = ''
+    const failed = []
+    for (const name of newNames) {
+      const areaId = newActivityAreaMap.value[name]
+      if (!areaId || !finalMap[name]) continue
+      try {
+        await activityStore.saveActivity({mode: 'edit', id: finalMap[name], name, areaIds: [areaId]})
+      } catch {
+        failed.push(name)
+      }
+    }
+    if (failed.length > 0) {
+      areaLinkError.value = `가져오기는 끝났지만 활동 ${failed.join(', ')}을(를) 영역에 연결하지 못했습니다. 영역(Area) 관리에서 직접 연결해 주세요.`
+    }
     step.value++
   } catch (e) {
     importError.value = '가져오기 실패: ' + String(e)
@@ -600,9 +692,15 @@ function resetWizard() {
   }
   activityMatchMap.value = {}
   dbActivities.value = []
+  newActivityAreaMap.value = {}
+  dbAreas.value = []
   importing.value = false
   importResult.value = null
   importError.value = ''
+  areaLinkError.value = ''
+  changeMeta.value = {}
+  nameMismatches.value = []
+  guardError.value = ''
   isNavigating.value = false
   previewLoading.value = false
   previewError.value = ''
@@ -943,6 +1041,24 @@ function resetWizard() {
             </select>
           </div>
         </div>
+
+        <!-- 새로 만들 활동의 영역 연결. 연결하지 않으면 기록 화면에 나타나지 않는다. -->
+        <div v-if="newActivityNames.length > 0" class="mt-6">
+          <p class="text-base font-semibold text-ink-2 m-0 mb-1.5">새로 만들 활동을 넣을 영역</p>
+          <p class="text-base text-ink-5 m-0 mb-3">영역을 고르지 않으면 활동만 만들어지고 기록 화면에는 나타나지 않습니다.</p>
+          <div class="flex flex-col border border-line rounded-[10px] overflow-hidden">
+            <div v-for="actName in newActivityNames" :key="'area-' + actName"
+                 class="grid items-center gap-3 py-2.5 px-4 border-b border-line/70 last:border-b-0 grid-mapper">
+              <span class="text-base text-ink-2">{{ actName }}</span>
+              <span class="text-base text-ink-5 text-center">→</span>
+              <select class="py-[7px] px-2.5 bg-surface border border-line rounded-lg text-ink text-base outline-none cursor-pointer w-full focus:border-blue/50"
+                      v-model="newActivityAreaMap[actName]">
+                <option :value="0">연결 안 함</option>
+                <option v-for="a in dbAreas" :key="a.id" :value="a.id">{{ a.name }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Step 5: 변경사항 확인 -->
@@ -969,6 +1085,33 @@ function resetWizard() {
                class="flex items-center gap-2.5 px-3.5 py-3 rounded-btn bg-amber/[8%] border border-amber/25 text-base text-amber leading-[1.5] mb-3">
             <AlertTriangle :size="16" class="shrink-0"/>
             <span>학년·반·번호를 읽을 수 없어 <strong>{{ skippedRowCount }}행</strong>이 제외되었습니다. 학번 형식과 열 지정을 확인해주세요.</span>
+          </div>
+
+          <!-- 이름 대조: 가져오기는 학년·반·번호로만 짝짓는다. 번호가 밀린 파일이면 다른 학생 문장이 들어간다. -->
+          <div v-if="nameMismatches.length > 0"
+               class="px-3.5 py-3 rounded-btn bg-red/[8%] border border-red/25 text-base text-red leading-[1.5] mb-3">
+            <div class="flex items-center gap-2.5 mb-1.5">
+              <AlertTriangle :size="16" class="shrink-0"/>
+              <span>파일의 이름과 저장된 이름이 다른 학생이 <strong>{{ nameMismatches.length }}명</strong> 있습니다. 번호가 밀리지 않았는지 확인한 뒤 가져오세요.</span>
+            </div>
+            <ul class="m-0 pl-7">
+              <li v-for="mm in nameMismatches" :key="`${mm.grade}-${mm.class_num}-${mm.number}`">
+                {{ mm.grade }}학년 {{ mm.class_num }}반 {{ mm.number }}번 — 파일: {{ mm.fileName }} / 저장: {{ mm.savedName }}
+              </li>
+            </ul>
+          </div>
+
+          <div v-if="guardError"
+               class="flex items-center gap-2.5 px-3.5 py-3 rounded-btn bg-amber/[8%] border border-amber/25 text-base text-amber leading-[1.5] mb-3">
+            <AlertTriangle :size="16" class="shrink-0"/>
+            <span>{{ guardError }}</span>
+          </div>
+
+          <!-- 담임 수정 보호 안내 -->
+          <div v-if="teacherEditedCount > 0"
+               class="flex items-center gap-2.5 px-3.5 py-3 rounded-btn bg-blue/[8%] border border-blue/25 text-base text-blue-2 leading-[1.5] mb-3">
+            <AlertTriangle :size="16" class="shrink-0"/>
+            <span>지난번 가져온 뒤 고친 칸 <strong>{{ teacherEditedCount }}건</strong>은 기본으로 체크하지 않았습니다(덮어쓰지 않음). 새 내용으로 바꾸려면 직접 체크하세요. 바꿔도 지금 내용은 버전 기록에 남습니다.</span>
           </div>
 
           <!-- 변경 항목 없음 -->
@@ -1030,6 +1173,17 @@ function resetWizard() {
                   </span>
                   <span class="text-ink-5 text-base">|</span>
                   <span class="text-base text-amber">{{ item.activity_name }}</span>
+                  <!-- badge: 담임 수정 / 수합본만 바뀜 -->
+                  <span v-if="changeMeta[item.key]?.kind === 'source-updated'"
+                        class="ml-auto text-sm font-semibold py-0.5 px-2 rounded-[6px] border text-green bg-green/[0.10] border-green/30 whitespace-nowrap">수합본만 바뀜</span>
+                  <span v-else
+                        class="ml-auto text-sm font-semibold py-0.5 px-2 rounded-[6px] border text-blue-2 bg-blue/[0.10] border-blue/30 whitespace-nowrap">가져온 뒤 고침</span>
+                </div>
+                <!-- 담임이 고친 칸은 지난번 가져온 내용도 함께 보여 준다(세 판 비교) -->
+                <div v-if="changeMeta[item.key]?.kind !== 'source-updated' && changeMeta[item.key]?.lastImported"
+                     class="py-3 px-3.5 border-b border-line bg-surface/60">
+                  <div class="text-[11px] font-semibold text-ink-5 tracking-[0.06em] mb-1.5">지난번 가져온 내용</div>
+                  <div class="text-base text-ink-4 leading-relaxed whitespace-pre-wrap break-all">{{ changeMeta[item.key].lastImported }}</div>
                 </div>
                 <div class="grid grid-cols-2">
                   <div class="py-3 px-3.5">
@@ -1118,6 +1272,11 @@ function resetWizard() {
             <span class="text-base text-ink-5">기록 저장</span>
           </div>
         </div>
+        <!-- 반별 파일에는 반 전원이 미리 들어 있다. 학생이 새로 생겼다면 다른 반 행이 섞였을 수 있다. -->
+        <p v-if="importResult.students_created > 0" class="text-base text-amber m-0 max-w-[520px] text-center leading-relaxed">
+          명단에 없던 학생 {{ importResult.students_created }}명이 새로 추가되었습니다. 다른 반 자료가 섞이지 않았는지 학생(Student) 관리에서 확인해 주세요.
+        </p>
+        <p v-if="areaLinkError" class="text-base text-red m-0 max-w-[520px] text-center leading-relaxed">{{ areaLinkError }}</p>
         <button
             class="mt-2 py-[9px] px-6 bg-transparent border border-line rounded-lg text-ink-5 text-base cursor-pointer transition-colors hover:bg-line hover:text-ink-3"
             @click="resetWizard"
