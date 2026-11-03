@@ -173,6 +173,14 @@ export function parseClassFilter(v) {
   return new Set(nums)
 }
 
+/** "--grade 1" 같은 학년 거르기. 비어 있으면 null. */
+export function parseGradeFilter(v) {
+  if (v === undefined || v === true || (typeof v === 'string' && !v.trim())) return null
+  const n = Number(String(v).trim())
+  if (!isValidIdentityPart(n)) throw new ToolError(`--grade는 학년 숫자 하나로: ${v}`)
+  return n
+}
+
 export function readJson(file) {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8').replace(/^﻿/, ''))

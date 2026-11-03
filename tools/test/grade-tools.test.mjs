@@ -72,6 +72,19 @@ describe('grade-setup', () => {
     await expect(quiet(() => setupMain(args))).rejects.toThrow(/덮어쓰지 않음/)
   })
 
+  it('전교 명렬표는 --grade 없이 만들지 않고, --grade로 그 학년 반만 만든다', async () => {
+    const dir = mk('grades')
+    writeRoster(path.join(dir, 'roster.xlsx'), [...fakeStudents(1, [1, 6], 5), ...fakeStudents(2, [6], 5)])
+    writeScanList(path.join(dir, 'scan.json'))
+    fs.writeFileSync(path.join(dir, 'setup.json'), JSON.stringify(SETUP_CONFIG), 'utf8')
+    const base = ['--roster', path.join(dir, 'roster.xlsx'), '--config', path.join(dir, 'setup.json'), '--classes', '6']
+    await expect(quiet(() => setupMain([...base, '--out', path.join(dir, 'none')]))).rejects.toThrow(/학년이 여럿입니다\(1·2학년\)/)
+    expect(fs.existsSync(path.join(dir, 'none')) ? fs.readdirSync(path.join(dir, 'none')) : []).toEqual([])
+    const out = path.join(dir, 'out')
+    await quiet(() => setupMain([...base, '--out', out, '--grade', '1']))
+    expect(fs.readdirSync(out)).toEqual(['2026_1-6_생기부.db'])
+  })
+
   it('저장소 안에는 --test 없이 만들지 않는다', () => {
     expect(() => resolveOutDir(path.join(REPO_ROOT, 'tools', 'test', 'should-not-exist'))).toThrow(ToolError)
   })

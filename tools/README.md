@@ -9,7 +9,7 @@
 ## 1. 학년 일괄 세팅 — 반별 프로젝트 파일 만들기
 
 ```
-node tools/grade-setup/grade-setup.mjs --roster <학년 명렬표.xlsx> --config <설정.json> --out <결과 폴더> [--classes 1,3]
+node tools/grade-setup/grade-setup.mjs --roster <학년 명렬표.xlsx> --config <설정.json> --out <결과 폴더> [--grade 1] [--classes 1,3]
 ```
 
 - 명렬표: 학번·이름 열 또는 학년·반·번호·이름 열(머리글로 찾음, 위에 제목 줄이 있어도 됨). 같은 번호가 두 번 있거나

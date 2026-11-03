@@ -3,7 +3,8 @@
 //
 // 사용법:
 //   node tools/grade-setup/grade-setup.mjs --roster <명렬표.xlsx> --config <설정.json> --out <결과 폴더>
-//        [--classes 1,3]   만들 반만 고른다(시범 반 등). 없으면 명렬표의 모든 반.
+//        [--grade 1]       만들 학년. 명렬표에 학년이 여럿이면(전교 명렬표) 꼭 정한다.
+//        [--classes 1,3]   만들 반만 고른다(시범 반 등). 없으면 그 학년의 모든 반.
 //        [--test]          저장소 안에 결과를 만들어도 된다(가짜 자료 시험용).
 //
 // 만드는 것(반마다 파일 하나):
@@ -22,7 +23,7 @@ import {DatabaseSync} from 'node:sqlite'
 import {DEFAULT_SYNONYMS, DEFAULT_SYNONYMS_VERSION} from '../../src/data/defaultSynonyms.ts'
 import {DEFAULT_REPLACE_RULES, DEFAULT_REPLACE_RULES_VERSION} from '../../src/data/defaultReplaceRules.ts'
 import {
-  REPO_ROOT, ToolError, assertNotExists, groupByClass, parseArgs, parseClassFilter, readJson,
+  REPO_ROOT, ToolError, assertNotExists, groupByClass, parseArgs, parseClassFilter, parseGradeFilter, readJson,
   readRoster, requireArg, resolveOutDir, runMain,
 } from '../lib/common.mjs'
 
@@ -235,13 +236,20 @@ export async function main(argv) {
   const configPath = requireArg(args, 'config', '설정 JSON(예: tools/grade-setup/setup.example.json)')
   const outDir = resolveOutDir(requireArg(args, 'out', '결과 폴더(저장소 밖)'), {test: args.test === true})
   const onlyClasses = parseClassFilter(args.classes)
+  const onlyGrade = parseGradeFilter(args.grade)
 
   const app = loadAppSchema()
   const config = normalizeConfig(readJson(configPath), path.dirname(path.resolve(configPath)))
   const classes = groupByClass(readRoster(rosterPath))
 
-  const targets = [...classes.entries()].filter(([k]) => !onlyClasses || onlyClasses.has(Number(k.split('-')[1])))
-  if (targets.length === 0) throw new ToolError('만들 반이 없습니다. --classes와 명렬표의 반 번호를 확인하세요.')
+  // 전교 명렬표를 넣고 학년을 고르지 않으면, 같은 반 번호의 다른 학년 파일까지 만들어진다.
+  const grades = [...new Set([...classes.values()].map(list => list[0].grade))].sort((a, b) => a - b)
+  if (onlyGrade === null && grades.length > 1) {
+    throw new ToolError(`명렬표에 학년이 여럿입니다(${grades.join('·')}학년). --grade로 만들 학년을 정하세요.`)
+  }
+  const targets = [...classes.entries()].filter(([, list]) =>
+      (onlyGrade === null || list[0].grade === onlyGrade) && (!onlyClasses || onlyClasses.has(list[0].class_num)))
+  if (targets.length === 0) throw new ToolError('만들 반이 없습니다. --grade·--classes와 명렬표의 학년·반 번호를 확인하세요.')
   // 하나라도 이미 있으면 아무것도 만들지 않는다(일부 반만 새 파일이 되는 일을 막는다).
   for (const [k, list] of targets) {
     assertNotExists(path.join(outDir, fileNameFor(config.fileName, list[0].grade, list[0].class_num)))
