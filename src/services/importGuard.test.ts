@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {classifyChange, findLastImported, findNameMismatches, IMPORT_HISTORY_NOTE} from './importGuard'
+import {classifyChange, findLastImported, findNameMismatches, IMPORT_HISTORY_NOTE, splitByKnownStudents} from './importGuard'
 
 describe('findLastImported', () => {
   it('최신부터 보아 처음 만난 import 메모의 내용', () => {
@@ -58,5 +58,36 @@ describe('findNameMismatches', () => {
       {grade: 1, class_num: 3, number: 9, name: '차카타'},
     ]
     expect(findNameMismatches(rows, students)).toEqual([])
+  })
+})
+
+describe('splitByKnownStudents', () => {
+  const students = [
+    {grade: 1, class_num: 6, number: 1},
+    {grade: 1, class_num: 6, number: 2},
+  ]
+
+  it('명단에 있는 행과 없는 행(다른 반)을 나눈다', () => {
+    const rows = [
+      {grade: 1, class_num: 6, number: 1, content: 'a'},
+      {grade: 1, class_num: 3, number: 1, content: 'b'},
+      {grade: 2, class_num: 6, number: 2, content: 'c'},
+      {grade: 1, class_num: 6, number: 2, content: 'd'},
+    ]
+    const {known, unknown} = splitByKnownStudents(rows, students)
+    expect(known.map(r => r.content)).toEqual(['a', 'd'])
+    expect(unknown.map(r => r.content)).toEqual(['b', 'c'])
+  })
+
+  it('같은 학생의 여러 행은 모두 남긴다(활동이 여럿인 B 타입)', () => {
+    const rows = [
+      {grade: 1, class_num: 6, number: 1, content: 'a'},
+      {grade: 1, class_num: 6, number: 1, content: 'b'},
+    ]
+    expect(splitByKnownStudents(rows, students).known).toHaveLength(2)
+  })
+
+  it('명단이 비어 있으면 전부 명단에 없는 행', () => {
+    expect(splitByKnownStudents([{grade: 1, class_num: 6, number: 1}], []).unknown).toHaveLength(1)
   })
 })

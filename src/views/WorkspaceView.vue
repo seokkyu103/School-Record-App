@@ -17,6 +17,7 @@ import ChecklistSection from '../sections/ChecklistSection.vue'
 import ReplaceSection from '../sections/ReplaceSection.vue'
 import InspectSection from '../sections/InspectSection.vue'
 import DuplicateSection from '../sections/DuplicateSection.vue'
+import StudentViewSection from '../sections/StudentViewSection.vue'
 import SnapshotModal from '../components/SnapshotModal.vue'
 import SettingsSection from '../sections/SettingsSection.vue'
 import UpdateSection from '../sections/UpdateSection.vue'
@@ -41,6 +42,7 @@ const sectionMap = {
   replace: ReplaceSection,
   inspect: InspectSection,
   duplicate: DuplicateSection,
+  studentView: StudentViewSection,
   settings: SettingsSection,
   update: UpdateSection,
 }

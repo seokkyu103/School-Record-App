@@ -6,11 +6,11 @@ import {useRecordStore} from '../stores/record.js'
 import {useFileStore} from '../stores/file.js'
 import {useAreaStore} from '../stores/area.js'
 import {useStudentStore} from '../stores/student.js'
-import {classifyChange, findLastImported, findNameMismatches} from '../services/importGuard'
+import {classifyChange, findLastImported, findNameMismatches, splitByKnownStudents} from '../services/importGuard'
 import {AlertTriangle, Download, FileSpreadsheet} from '@lucide/vue'
 import {RECORD_COL_ALIASES, STUDENT_COL_ALIASES} from '../data/columnAliases'
 import {isValidIdentityPart, parseStudentId} from '../services/studentId'
-import {decodeCsvBytes, loadXlsxRows, parseCsv} from '../services/spreadsheet'
+import {decodeCsvBytes, findHeaderRowIndex, loadXlsxRows, parseCsv} from '../services/spreadsheet'
 import WizardLayout from '../components/WizardLayout.vue'
 import DiffView from '../components/DiffView.vue'
 import {Workbook} from 'exceljs'
@@ -35,6 +35,10 @@ const FIELD_LABELS_B = {
 }
 const REQUIRED_A = ['grade', 'classNum', 'number', 'activityName', 'activityContent']
 const REQUIRED_B = ['grade', 'classNum', 'number']
+
+// A 타입의 활동명을 열 대신 직접 입력할 때 colMap.activityName에 넣는 값.
+// 담당 교사가 보내는 행사 기록 엑셀(학번·이름·내용)에는 활동명 열이 없다.
+const FIXED_ACTIVITY = -1
 
 // ── 상태 ──────────────────────────────────────────────────────
 
@@ -78,6 +82,12 @@ const diffViewMode = ref('raw')
 const pendingRecords = ref([])
 // 학번을 해석하지 못해 임포트에서 빠진 행 수. 0이 아니면 사용자에게 알린다.
 const skippedRowCount = ref(0)
+// 활동명을 직접 입력할 때의 이름(colMap.activityName === FIXED_ACTIVITY).
+const fixedActivityName = ref('')
+// 명단에 없는 학생(다른 반)의 행을 건너뛸지. 반별 파일에는 반 전원이 미리 들어 있으므로 기본으로 켠다.
+const skipUnknownStudents = ref(true)
+// 위 설정으로 건너뛴 행 수. 0이 아니면 미리보기에서 알린다(조용히 빠지면 안 된다).
+const unknownStudentRowCount = ref(0)
 // 바뀌는 칸마다 { kind: 'source-updated' | 'teacher-edited', lastImported } (services/importGuard.ts)
 const changeMeta = ref({})
 // 파일의 이름과 프로젝트의 이름이 다른 학생
@@ -97,8 +107,15 @@ const hasDuplicateCols = computed(() => {
   const currentKeys = targetKeys[idMode.value] || []
   const vals = currentKeys
       .map(key => colMap.value[key])
-      .filter(v => v !== null && v !== undefined && v !== '')
+      .filter(v => v !== null && v !== undefined && v !== '' && v !== FIXED_ACTIVITY)
   return vals.length !== new Set(vals).size
+})
+
+// A 타입 활동명이 정해졌는가(열을 골랐거나, 직접 입력을 골라 이름을 적었다).
+const activityNameReady = computed(() => {
+  const col = colMap.value.activityName
+  if (col === null) return false
+  return col !== FIXED_ACTIVITY || fixedActivityName.value.trim() !== ''
 })
 
 const canGoNext = computed(() => {
@@ -109,10 +126,11 @@ const canGoNext = computed(() => {
     const m = colMap.value
     if (idMode.value === 'studentId') {
       if (m.studentId === null) return false
-      if (fileType.value === 'A') return m.activityName !== null && m.activityContent !== null
+      if (fileType.value === 'A') return activityNameReady.value && m.activityContent !== null
       return true
     }
     const required = fileType.value === 'A' ? REQUIRED_A : REQUIRED_B
+    if (fileType.value === 'A' && !activityNameReady.value) return false
     return required.every(f => m[f] !== null)
   }
   if (step.value === 4) return extractedActivities.value.length > 0
@@ -124,6 +142,10 @@ const extractedActivities = computed(() => {
   if (fileType.value === 'A') {
     const col = colMap.value.activityName
     if (col === null) return []
+    if (col === FIXED_ACTIVITY) {
+      const name = fixedActivityName.value.trim()
+      return name ? [name] : []
+    }
     const set = new Set()
     rawData.value.forEach(row => {
       const v = String(row[col] ?? '').trim()
@@ -273,6 +295,8 @@ function processFile(file) {
       } else {
         rows = await loadXlsxRows(ev.target.result)
       }
+      // 맨 위의 제목 줄(예: "교내활동 '○○' 생기부")을 건너뛰고 머리글 줄부터 읽는다.
+      rows = rows.slice(findHeaderRowIndex(rows, COL_ALIASES))
       if (rows.length < 2) {
         parseError.value = '데이터가 없습니다. 헤더 포함 최소 2행이 필요합니다.'
         return
@@ -429,6 +453,7 @@ async function loadPreview() {
   checkedKeys.value = new Set()
   pendingRecords.value = []
   skippedRowCount.value = 0
+  unknownStudentRowCount.value = 0
   changeMeta.value = {}
   nameMismatches.value = []
   guardError.value = ''
@@ -462,7 +487,9 @@ async function loadPreview() {
           skippedRowCount.value++
           continue
         }
-        const actName = String(row[m.activityName] ?? '').trim()
+        const actName = m.activityName === FIXED_ACTIVITY
+            ? fixedActivityName.value.trim()
+            : String(row[m.activityName] ?? '').trim()
         const content = String(row[m.activityContent] ?? '').trim()
         if (!actName || !content) continue
         const activity_id = activityMatchMap.value[actName]
@@ -488,6 +515,22 @@ async function loadPreview() {
           else newActRawItems.push(rec)
         }
       }
+    }
+
+    // 명단에 없는 학생(다른 반)의 행을 뺀다. 학생 목록을 못 읽으면 걸러낼 수 없으므로
+    // 멈춘다 — 그대로 진행하면 다른 반 학생이 이 파일에 새로 만들어진다.
+    if (skipUnknownStudents.value) {
+      try {
+        await studentStore.fetchStudents()
+      } catch (e) {
+        throw new Error('학생 목록을 읽지 못해 다른 반 학생을 걸러낼 수 없습니다. "명단에 없는 학생 건너뛰기"를 끄거나 다시 시도해 주세요. (' + String(e) + ')')
+      }
+      const students = studentStore.students
+      const a = splitByKnownStudents(existingActRecords, students)
+      const b = splitByKnownStudents(newActRawItems, students)
+      unknownStudentRowCount.value = a.unknown.length + b.unknown.length
+      existingActRecords.splice(0, existingActRecords.length, ...a.known)
+      newActRawItems.splice(0, newActRawItems.length, ...b.known)
     }
 
     pendingRecords.value = [...existingActRecords, ...newActRawItems]
@@ -709,6 +752,9 @@ function resetWizard() {
   diffViewMode.value = 'raw'
   pendingRecords.value = []
   skippedRowCount.value = 0
+  fixedActivityName.value = ''
+  skipUnknownStudents.value = true
+  unknownStudentRowCount.value = 0
 }
 </script>
 
@@ -996,8 +1042,14 @@ function resetWizard() {
               <label class="text-base text-ink-2">{{ FIELD_LABELS_A[field] }} <span class="text-red ml-0.5">*</span></label>
               <select class="py-2 px-3 bg-surface border border-line rounded-lg text-ink text-base outline-none cursor-pointer focus:border-blue/50" v-model="colMap[field]">
                 <option :value="null">— 선택 안 함 —</option>
+                <option v-if="field === 'activityName'" :value="FIXED_ACTIVITY">✎ 직접 입력 (파일에 활동명 열이 없을 때)</option>
                 <option v-for="(h, i) in rawHeaders" :key="i" :value="i">{{ h }}</option>
               </select>
+            </div>
+            <div v-if="colMap.activityName === FIXED_ACTIVITY" class="grid grid-cols-[160px_1fr] items-center gap-4">
+              <label class="text-base text-ink-2">활동 이름</label>
+              <input v-model="fixedActivityName" type="text" placeholder="예: 사회통계분석 컨퍼런스(SOCRA) — 모든 행이 이 활동으로 들어갑니다"
+                     class="py-2 px-3 bg-surface border border-line rounded-lg text-ink text-base outline-none focus:border-blue/50"/>
             </div>
           </template>
           <!-- B타입 활동 열 자동 표시 -->
@@ -1011,6 +1063,13 @@ function resetWizard() {
               </div>
             </div>
           </template>
+
+          <label class="flex items-start gap-2.5 mt-3 text-base text-ink-2 cursor-pointer">
+            <input v-model="skipUnknownStudents" type="checkbox" class="mt-1 cursor-pointer"/>
+            <span>명단에 없는 학생(다른 반)은 건너뛰기
+              <span class="block text-ink-5">여러 반이 섞인 엑셀을 그대로 가져올 때 켜 둡니다. 끄면 명단에 없는 학생이 이 파일에 새로 추가됩니다.</span>
+            </span>
+          </label>
 
           <p v-if="hasDuplicateCols" class="text-base text-red m-0 mt-2">동일한 열을 여러 필드에 지정할 수 없습니다. 각 필드에 서로 다른 열을 선택해 주세요.</p>
           <p v-if="importError" class="text-base text-red m-0 mt-2">{{ importError }}</p>
@@ -1085,6 +1144,13 @@ function resetWizard() {
                class="flex items-center gap-2.5 px-3.5 py-3 rounded-btn bg-amber/[8%] border border-amber/25 text-base text-amber leading-[1.5] mb-3">
             <AlertTriangle :size="16" class="shrink-0"/>
             <span>학년·반·번호를 읽을 수 없어 <strong>{{ skippedRowCount }}행</strong>이 제외되었습니다. 학번 형식과 열 지정을 확인해주세요.</span>
+          </div>
+
+          <!-- 명단에 없는 학생(다른 반) 행을 건너뛴 안내 -->
+          <div v-if="unknownStudentRowCount > 0"
+               class="flex items-center gap-2.5 px-3.5 py-3 rounded-btn bg-blue/[8%] border border-blue/25 text-base text-blue-2 leading-[1.5] mb-3">
+            <AlertTriangle :size="16" class="shrink-0"/>
+            <span>명단에 없는 학생(다른 반)의 <strong>{{ unknownStudentRowCount }}행</strong>은 건너뛰었습니다.</span>
           </div>
 
           <!-- 이름 대조: 가져오기는 학년·반·번호로만 짝짓는다. 번호가 밀린 파일이면 다른 학생 문장이 들어간다. -->

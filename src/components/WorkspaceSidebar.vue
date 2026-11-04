@@ -11,6 +11,7 @@ import {
   Download,
   FolderOpen,
   GitBranch,
+  IdCard,
   Layers,
   LayoutDashboard,
   PenLine,
@@ -86,6 +87,7 @@ const navGroups = [
   {
     items: [
       {id: 'record', label: '생기부 작성(Write)', icon: PenLine},
+      {id: 'studentView', label: '학생별 보기(Student)', icon: IdCard},
     ],
   },
   {

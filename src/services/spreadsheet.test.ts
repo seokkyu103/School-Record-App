@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { Workbook } from 'exceljs'
-import { cellValue, decodeCsvBytes, loadXlsxRows, parseCsv } from './spreadsheet'
+import { cellValue, decodeCsvBytes, findHeaderRowIndex, loadXlsxRows, parseCsv } from './spreadsheet'
 
 describe('parseCsv', () => {
   it('쉼표로 나누고 행 단위로 모은다', () => {
@@ -141,5 +141,41 @@ describe('loadXlsxRows', () => {
       ['1', '2', '1', '가나'],
       ['1', '2', '3', ''],
     ])
+  })
+})
+
+describe('findHeaderRowIndex', () => {
+  const aliases = {studentId: ['학번'], name: ['이름'], activityContent: ['내용']}
+
+  it('첫 줄이 머리글이면 0', () => {
+    expect(findHeaderRowIndex([['학번', '이름', '내용'], ['10101', '가', '나']], aliases)).toBe(0)
+  })
+
+  it('위에 제목 줄이 있으면 별칭이 둘 이상 맞는 첫 줄을 머리글로 본다', () => {
+    const rows = [
+      ["교내활동 '가상행사' 생기부", '', ''],
+      ['학번', '이름', '지도교사', '내용', '바이트'],
+      ['10101', '가', '선생', '나', '3'],
+    ]
+    expect(findHeaderRowIndex(rows, aliases)).toBe(1)
+  })
+
+  it('공백·대소문자는 무시하고 맞춘다', () => {
+    expect(findHeaderRowIndex([['제목'], [' 학 번', '이름']], aliases)).toBe(1)
+  })
+
+  it('별칭이 하나만 맞는 줄은 머리글로 보지 않는다(제목에 우연히 든 낱말)', () => {
+    const rows = [['내용', '', ''], ['학번', '이름', '내용']]
+    expect(findHeaderRowIndex(rows, aliases)).toBe(1)
+  })
+
+  it('못 찾으면 0 — 예전처럼 첫 줄을 머리글로 쓴다', () => {
+    expect(findHeaderRowIndex([['a', 'b'], ['1', '2']], aliases)).toBe(0)
+  })
+
+  it('앞쪽 몇 줄만 본다 — 데이터 한가운데 줄을 머리글로 잡지 않는다', () => {
+    const rows = Array.from({length: 30}, () => ['x', 'y'])
+    rows[20] = ['학번', '이름']
+    expect(findHeaderRowIndex(rows, aliases)).toBe(0)
   })
 })

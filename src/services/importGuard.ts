@@ -88,3 +88,22 @@ export function findNameMismatches(rows: IdentityRow[], students: StudentRow[]):
   }
   return result
 }
+
+/**
+ * 프로젝트 명단에 있는 학생의 행과 없는 학생의 행을 나눈다.
+ *
+ * 반별 파일에는 반 전원이 미리 들어 있다. 담당 교사가 보낸 행사 기록 엑셀에는 여러 반 학생이
+ * 섞여 있어, 그대로 가져오면 다른 반 학생이 이 파일에 새로 만들어진다. 명단에 없는 행을
+ * 건너뛸 수 있게 미리 나눈다(건너뛸지는 화면에서 고른다). 학년·반·번호로만 맞춘다 — 이름이
+ * 다른 경우는 findNameMismatches가 따로 알린다.
+ */
+export function splitByKnownStudents<T extends Omit<IdentityRow, 'name'>>(
+  rows: T[],
+  students: Omit<StudentRow, 'name'>[],
+): {known: T[], unknown: T[]} {
+  const ids = new Set(students.map(s => `${s.grade}-${s.class_num}-${s.number}`))
+  const known: T[] = []
+  const unknown: T[] = []
+  for (const r of rows) (ids.has(`${r.grade}-${r.class_num}-${r.number}`) ? known : unknown).push(r)
+  return {known, unknown}
+}

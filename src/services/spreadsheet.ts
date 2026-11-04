@@ -165,3 +165,23 @@ export async function loadXlsxRows(buffer: ArrayBuffer): Promise<string[][]> {
     return padToHeader(raw.map(row => row.map(v => (v === null || v === undefined) ? '' : String(v))))
   }
 }
+
+/** 머리글을 찾을 때 볼 앞쪽 줄 수. 제목·빈 줄 몇 개를 건너뛰기에 충분하고, 데이터 한가운데를 잡지 않을 만큼 짧다. */
+const HEADER_SCAN_ROWS = 10
+
+/**
+ * 머리글 줄의 위치를 찾는다. 맨 위에 제목 줄이 있는 파일(예: "교내활동 '○○' 생기부" 다음 줄에
+ * 학번·이름·내용)도 손대지 않고 가져올 수 있게 한다.
+ *
+ * 앞쪽 몇 줄 가운데 **열 별칭이 두 개 이상 맞는 첫 줄**을 머리글로 본다. 하나만 맞는 줄은
+ * 제목에 우연히 든 낱말일 수 있어 건너뛴다. 못 찾으면 0(첫 줄) — 예전 동작 그대로다.
+ */
+export function findHeaderRowIndex(rows: string[][], aliases: Record<string, string[]>): number {
+  const known = new Set(Object.values(aliases).flat().map(a => a.toLowerCase().replace(/\s/g, '')))
+  const limit = Math.min(rows.length, HEADER_SCAN_ROWS)
+  for (let i = 0; i < limit; i++) {
+    const hits = rows[i].filter(c => known.has(String(c ?? '').toLowerCase().replace(/\s/g, ''))).length
+    if (hits >= 2) return i
+  }
+  return 0
+}

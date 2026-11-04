@@ -1,0 +1,60 @@
+import {describe, expect, it} from 'vitest'
+import {areaBytes, areasOfStudent, collectStudents, joinedPreview, splitVisible} from './studentView'
+
+const s = (id: number, number: number, class_num = 6) => ({id, grade: 1, class_num, number, name: `학생${id}`})
+const area = (id: number) => ({id, name: `영역${id}`, byte_limit: 1500})
+
+describe('collectStudents', () => {
+  it('여러 영역의 학생을 한 번씩, 학년·반·번호 순으로 모은다', () => {
+    const grids = [
+      {area: area(1), activities: [], students: [s(2, 2), s(1, 1)]},
+      {area: area(2), activities: [], students: [s(1, 1), s(3, 3)]},
+    ]
+    expect(collectStudents(grids).map(x => x.id)).toEqual([1, 2, 3])
+  })
+})
+
+describe('areasOfStudent', () => {
+  it('학생이 배정된 영역만 고른다', () => {
+    const grids = [
+      {area: area(1), activities: [], students: [s(1, 1)]},
+      {area: area(2), activities: [], students: [s(2, 2)]},
+    ]
+    expect(areasOfStudent(grids, 1).map(g => g.area.id)).toEqual([1])
+  })
+})
+
+describe('areaBytes', () => {
+  it('칸마다 바이트를 더한다(한글 3바이트)', () => {
+    const contents: Record<number, string> = {1: '가나', 2: 'ab'}
+    expect(areaBytes([{id: 1, name: 'a'}, {id: 2, name: 'b'}, {id: 3, name: 'c'}], id => contents[id] ?? '')).toBe(8)
+  })
+})
+
+describe('joinedPreview', () => {
+  it('빈 칸을 빼고 줄바꿈·겹친 공백을 정리해 잇는다', () => {
+    const contents: Record<number, string> = {1: '첫 활동.\n둘째 줄.', 2: '', 3: '셋째  활동.'}
+    const acts = [1, 2, 3].map(id => ({id, name: String(id)}))
+    expect(joinedPreview(acts, id => contents[id] ?? '', ' ')).toBe('첫 활동. 둘째 줄. 셋째 활동.')
+  })
+})
+
+describe('splitVisible', () => {
+  const acts = [1, 2, 3].map(id => ({id, name: String(id)}))
+  const contents: Record<number, string> = {1: '글', 2: '  ', 3: ''}
+  const contentOf = (id: number) => contents[id] ?? ''
+
+  it('기본은 글이 있는 칸만 보이고 빈 칸(공백뿐인 칸 포함)은 접는다', () => {
+    const r = splitVisible(acts, contentOf, new Set(), false)
+    expect(r.visible.map(a => a.id)).toEqual([1])
+    expect(r.hidden.map(a => a.id)).toEqual([2, 3])
+  })
+
+  it('펼친 빈 칸은 보인다', () => {
+    expect(splitVisible(acts, contentOf, new Set([3]), false).visible.map(a => a.id)).toEqual([1, 3])
+  })
+
+  it('모두 보기면 빈 칸도 보인다', () => {
+    expect(splitVisible(acts, contentOf, new Set(), true).hidden).toEqual([])
+  })
+})
