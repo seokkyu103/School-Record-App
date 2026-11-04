@@ -6,7 +6,7 @@ import {useRecordStore} from '../stores/record.js'
 import {useFileStore} from '../stores/file.js'
 import {useAreaStore} from '../stores/area.js'
 import {useStudentStore} from '../stores/student.js'
-import {classifyChange, findLastImported, findNameMismatches, splitByKnownStudents} from '../services/importGuard'
+import {activitiesToCreate, classifyChange, findLastImported, findNameMismatches, splitByKnownStudents} from '../services/importGuard'
 import {AlertTriangle, Download, FileSpreadsheet} from '@lucide/vue'
 import {RECORD_COL_ALIASES, STUDENT_COL_ALIASES} from '../data/columnAliases'
 import {isValidIdentityPart, parseStudentId} from '../services/studentId'
@@ -600,7 +600,25 @@ async function doImport() {
 
   try {
     const finalMap = {...activityMatchMap.value}
-    const newNames = Object.entries(finalMap).filter(([, id]) => id === 0).map(([name]) => name)
+
+    // 가져올 행부터 고른다. 활동을 먼저 만들면, 가져올 행이 없을 때(다른 반 파일 등)
+    // 빈 활동만 활동 목록에 남는다.
+    const included = pendingRecords.value.filter(pending => {
+      const previewItem = previewItems.value.find(p => p.key === pending.previewKey)
+      if (!previewItem || previewItem.existing_content === '') return true
+      if (previewItem.existing_content === previewItem.new_content) return false
+      return checkedKeys.value.has(pending.previewKey)
+    })
+
+    if (included.length === 0) {
+      importError.value = '가져올 데이터가 없습니다.'
+      return
+    }
+
+    const newNames = activitiesToCreate(
+        included.filter(p => !(p.activity_id > 0)).map(p => p.activity_name),
+        finalMap,
+    )
     if (newNames.length > 0) {
       const nameToId = await activityStore.createActivitiesBatch(newNames)
       for (const [name, id] of Object.entries(nameToId)) {
@@ -609,33 +627,19 @@ async function doImport() {
     }
 
     const records = []
-    for (const pending of pendingRecords.value) {
+    for (const pending of included) {
       const activity_id = pending.activity_id > 0
           ? pending.activity_id
           : finalMap[pending.activity_name]
       if (!activity_id) continue
-
-      const previewItem = previewItems.value.find(p => p.key === pending.previewKey)
-
-      let include = false
-      if (!previewItem || previewItem.existing_content === '') {
-        include = true
-      } else if (previewItem.existing_content === previewItem.new_content) {
-        include = false
-      } else {
-        include = checkedKeys.value.has(pending.previewKey)
-      }
-
-      if (include) {
-        records.push({
-          grade: pending.grade,
-          class_num: pending.class_num,
-          number: pending.number,
-          name: pending.name,
-          activity_id,
-          content: pending.content,
-        })
-      }
+      records.push({
+        grade: pending.grade,
+        class_num: pending.class_num,
+        number: pending.number,
+        name: pending.name,
+        activity_id,
+        content: pending.content,
+      })
     }
 
     if (records.length === 0) {

@@ -14,6 +14,8 @@ import {cellKey} from '../services/studentView'
  * 더한 것: snapshotNote를 주면 **이 화면에서 칸을 처음 고치기 전에** 그 칸의 지금 내용을
  * 버전 기록에 남긴다. 셀 편집은 버전 기록을 만들지 않는 설계(CLAUDE.md)라, 상담 중에
  * 잘라내기·붙여넣기로 영역 사이를 옮기다 실수하면 되돌릴 길이 없기 때문이다.
+ * 저장된 내용이 없는 칸(빈 칸)은 남길 것이 없으므로 건너뛰고, 그 칸에 처음 저장된 뒤
+ * 다시 고칠 때 남긴다 — 빈 칸에 쓰고 같은 화면에서 잘라 내도 쓴 글이 기록에 남게.
  */
 export function useCellAutosave({snapshotNote = null} = {}) {
     const recordStore = useRecordStore()
@@ -31,6 +33,8 @@ export function useCellAutosave({snapshotNote = null} = {}) {
     const inFlightSaves = new Map()
     // 칸마다 "고치기 전" 기록 한 번. 값은 그 작업의 Promise(저장이 이것을 기다린다).
     const snapshots = new Map()
+    // 칸마다 DB에 저장된 것으로 아는 내용(불러온 내용, 저장에 성공한 내용)
+    const savedContent = new Map()
 
     let unlistenClose = null
     let unmounted = false
@@ -51,7 +55,12 @@ export function useCellAutosave({snapshotNote = null} = {}) {
     /** 불러온 기록으로 칸 내용을 채운다. */
     function load(records) {
         cellContent.clear()
-        for (const r of records) cellContent.set(cellKey(r.activity_id, r.student_id), r.content)
+        savedContent.clear()
+        for (const r of records) {
+            const key = cellKey(r.activity_id, r.student_id)
+            cellContent.set(key, r.content)
+            savedContent.set(key, r.content)
+        }
     }
 
     function contentOf(activityId, studentId) {
@@ -67,6 +76,8 @@ export function useCellAutosave({snapshotNote = null} = {}) {
         if (!snapshotNote) return Promise.resolve()
         const key = cellKey(activityId, studentId)
         if (!snapshots.has(key)) {
+            // 저장된 내용이 없으면 남길 것이 없다. 표시하지 않고 두어 처음 저장된 뒤 다음에 고칠 때 남긴다.
+            if (!(savedContent.get(key) ?? '').trim()) return Promise.resolve()
             snapshots.set(key, recordStore.saveHistorySnapshot({activityId, studentId, note: snapshotNote})
                 .catch(e => {
                     // 버전 기록을 못 남겨도 저장은 한다 — 쓴 글을 잃는 것이 더 나쁘다. 대신 알린다.
@@ -94,6 +105,7 @@ export function useCellAutosave({snapshotNote = null} = {}) {
         setState(key, 'saving')
         const pending = ensureSnapshot(activityId, studentId)
             .then(() => recordStore.upsertRecord(activityId, studentId, content))
+            .then(() => { savedContent.set(key, content) })
         inFlightSaves.set(key, pending)
         try {
             await pending
@@ -133,7 +145,9 @@ export function useCellAutosave({snapshotNote = null} = {}) {
         const saves = []
         for (const [key, content] of targets) {
             const [actId, stuId] = key.split('-').map(Number)
-            saves.push(ensureSnapshot(actId, stuId).then(() => recordStore.upsertRecord(actId, stuId, content)))
+            saves.push(ensureSnapshot(actId, stuId)
+                .then(() => recordStore.upsertRecord(actId, stuId, content))
+                .then(() => { savedContent.set(key, content) }))
         }
         await Promise.all(saves)
         for (const key of targets.keys()) {

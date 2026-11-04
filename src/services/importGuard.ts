@@ -107,3 +107,17 @@ export function splitByKnownStudents<T extends Omit<IdentityRow, 'name'>>(
   for (const r of rows) (ids.has(`${r.grade}-${r.class_num}-${r.number}`) ? known : unknown).push(r)
   return {known, unknown}
 }
+
+/**
+ * 가져올 행이 실제로 쓰는 활동 가운데 새로 만들어야 할 이름만 고른다.
+ *
+ * 4단계 연결표에는 파일에 나온 활동명이 모두 들어 있다. 그런데 명단에 없는 학생을 건너뛰거나
+ * 바뀐 칸을 고르지 않으면 어떤 활동은 가져올 행이 하나도 남지 않는다. 그런 활동까지 만들면
+ * 빈 활동이 활동 목록에 남는다. 연결표 값이 0("새로 만들기")인 이름만 만든다.
+ */
+export function activitiesToCreate(
+  activityNames: string[],
+  matchMap: Record<string, number>,
+): string[] {
+  return [...new Set(activityNames)].filter(name => matchMap[name] === 0)
+}

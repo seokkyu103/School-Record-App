@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {classifyChange, findLastImported, findNameMismatches, IMPORT_HISTORY_NOTE, splitByKnownStudents} from './importGuard'
+import {activitiesToCreate, classifyChange, findLastImported, findNameMismatches, IMPORT_HISTORY_NOTE, splitByKnownStudents} from './importGuard'
 
 describe('findLastImported', () => {
   it('최신부터 보아 처음 만난 import 메모의 내용', () => {
@@ -89,5 +89,20 @@ describe('splitByKnownStudents', () => {
 
   it('명단이 비어 있으면 전부 명단에 없는 행', () => {
     expect(splitByKnownStudents([{grade: 1, class_num: 6, number: 1}], []).unknown).toHaveLength(1)
+  })
+})
+
+describe('activitiesToCreate', () => {
+  it('가져올 행이 쓰는 활동 가운데 새로 만들기(0)만, 한 번씩', () => {
+    const map = {'새 행사': 0, '수요독서토론': 3, '안 쓰는 새 활동': 0}
+    expect(activitiesToCreate(['새 행사', '수요독서토론', '새 행사'], map)).toEqual(['새 행사'])
+  })
+
+  it('가져올 행이 없으면 아무것도 만들지 않음', () => {
+    expect(activitiesToCreate([], {'학교 행사 시험': 0})).toEqual([])
+  })
+
+  it('연결표에 없는 이름은 만들지 않음', () => {
+    expect(activitiesToCreate(['모르는 이름'], {})).toEqual([])
   })
 })
