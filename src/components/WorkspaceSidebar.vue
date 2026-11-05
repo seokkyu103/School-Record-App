@@ -1,5 +1,5 @@
 <script setup>
-import {computed} from 'vue'
+import {computed, ref} from 'vue'
 import {revealItemInDir} from '@tauri-apps/plugin-opener'
 import {
   BookOpen,
@@ -14,16 +14,19 @@ import {
   IdCard,
   Layers,
   LayoutDashboard,
+  Moon,
   PenLine,
   Replace,
   ScanSearch,
   RefreshCw,
   Settings,
+  Sun,
   Upload,
   Users,
 } from '@lucide/vue'
 import {WebviewWindow} from '@tauri-apps/api/webviewWindow'
 import {useUpdateStore} from '../stores/updateStore.js'
+import {useConfigStore} from '../stores/configStore'
 
 const props = defineProps({
   collapsed: Boolean,
@@ -34,6 +37,19 @@ const props = defineProps({
 const emit = defineEmits(['update:collapsed', 'select', 'openSnapshot'])
 
 const update = useUpdateStore()
+const configStore = useConfigStore()
+
+// 고양외고 25기 1학년부 판: 어느 화면에서든 테마를 바꾸도록 메뉴 맨 위에 둔다.
+// setTheme은 저장에 실패하면 되돌리고 던진다. 조용히 넘기면 눌러도 안 바뀌는 단추처럼 보인다.
+const themeError = ref('')
+async function toggleTheme() {
+  themeError.value = ''
+  try {
+    await configStore.setTheme(configStore.theme === 'dark' ? 'light' : 'dark')
+  } catch (e) {
+    themeError.value = `테마를 저장하지 못했습니다: ${e}`
+  }
+}
 
 const fileName = computed(() => {
   if (!props.filePath) return ''
@@ -131,6 +147,19 @@ const navGroups = [
 
     <!-- 네비게이션 -->
     <nav class="flex-1 py-2.5 px-2 flex flex-col gap-0.5 overflow-y-auto">
+      <!-- 테마 바꾸기(고양외고 25기 1학년부 판) -->
+      <button
+          class="flex items-center gap-2.5 w-full rounded-btn border border-line-2 bg-transparent cursor-pointer text-base font-medium text-left whitespace-nowrap transition-colors text-ink-3 hover:bg-line hover:text-ink"
+          :class="collapsed ? 'justify-center p-2.25' : 'py-2.25 px-2.5'"
+          :title="configStore.theme === 'dark' ? '밝은 화면(라이트 모드)으로 바꾸기' : '어두운 화면(다크 모드)으로 바꾸기'"
+          @click="toggleTheme"
+      >
+        <Sun v-if="configStore.theme === 'dark'" :size="20" class="shrink-0 text-amber"/>
+        <Moon v-else :size="20" class="shrink-0 text-violet"/>
+        <span v-if="!collapsed">{{ configStore.theme === 'dark' ? '밝은 화면으로' : '어두운 화면으로' }}</span>
+      </button>
+      <p v-if="themeError && !collapsed" class="text-base text-red m-0 px-1 whitespace-normal">{{ themeError }}</p>
+      <div class="sidebar-divider my-2 mx-1"/>
       <template v-for="(group, gi) in navGroups" :key="gi">
         <div v-if="gi > 0" class="sidebar-divider my-2 mx-1"/>
         <button
