@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { EDITION_DEFAULTS_VERSION, RETIRED_SYNONYMS, ADDED_SYNONYM_GROUPS, ADDED_REPLACE_RULES, UPSTREAM_VERSIONS } from '../data/editionDefaults'
 
 export const useProjectStore = defineStore('project', () => {
   const isOpen = ref(false)
@@ -51,5 +52,25 @@ export const useProjectStore = defineStore('project', () => {
     return await invoke('check_and_update_app_version')  // null | "" | "0.2.x"
   }
 
-  return { isOpen, filePath, openWarnings, setProject, closeProject, newProject, openProject, backupProject, migrateSchema, checkAndUpdateVersion }
+  // 고양외고 25기 1학년부 판: 비어 있는 동아리활동 영역을 한 번 지운다. 지웠으면 true.
+  async function removeUnusedClubArea() {
+    return await invoke('remove_unused_club_area')
+  }
+
+  // 고양외고 25기 1학년부 판: 기본 유의어·치환 규칙의 바뀐 부분을 파일에 한 번 넣는다. 넣었으면 true.
+  async function applyEditionDefaults() {
+    return await invoke('apply_edition_defaults', {
+      defaults: {
+        version: String(EDITION_DEFAULTS_VERSION),
+        retiredGroup: RETIRED_SYNONYMS.group,
+        retiredWords: RETIRED_SYNONYMS.words,
+        addedGroups: ADDED_SYNONYM_GROUPS,
+        addedRules: ADDED_REPLACE_RULES,
+        synonymVersion: UPSTREAM_VERSIONS.synonym,
+        replaceRulesVersion: UPSTREAM_VERSIONS.replaceRules,
+      },
+    })
+  }
+
+  return { isOpen, filePath, openWarnings, setProject, closeProject, newProject, openProject, backupProject, migrateSchema, checkAndUpdateVersion, removeUnusedClubArea, applyEditionDefaults }
 })

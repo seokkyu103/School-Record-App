@@ -7,6 +7,7 @@ import {useStudentViewStore} from '../stores/studentView'
 import {useCellAutosave} from '../composables/useCellAutosave'
 import {areaBytes, areasOfStudent, collectStudents, joinedPreview, splitVisible} from '../services/studentView'
 import CellHistoryModal from '../components/CellHistoryModal.vue'
+import MergedEditor from '../components/MergedEditor.vue'
 
 // 학생별 보기(고양외고 25기 1학년부 판). 한 학생의 자율·동아리·진로·행발을 한 화면에서 보고 고친다.
 // 상담 중에 다른 학생을 가리고(목록 접기) 영역 사이로 글을 잘라 붙이는 작업을 위한 화면이다.
@@ -64,6 +65,30 @@ function contentOf(activityId) {
 
 function cellsOf(grid) {
   return splitVisible(grid.activities, contentOf, revealed.value, showAllCells.value)
+}
+
+// 영역마다 고유한 색. 학생마다 배정 영역이 달라도 같은 영역은 같은 색이 되게, 전체 영역 순서로 정한다.
+// 빨강은 바이트 초과 표시에 쓰므로 뺀다.
+const AREA_COLORS = ['var(--c-blue)', 'var(--c-green)', 'var(--c-violet)', 'var(--c-amber)']
+
+function areaColor(grid) {
+  const i = areaStore.areas.findIndex(a => a.id === grid.area.id)
+  return AREA_COLORS[(i < 0 ? 0 : i) % AREA_COLORS.length]
+}
+
+// 칸 번호(①②…). 통합본의 조각과 아래 칸을 같은 번호로 잇는다.
+function markOf(grid, activityId) {
+  const i = grid.activities.findIndex(a => a.id === activityId)
+  return i >= 0 && i < 20 ? String.fromCharCode(0x2460 + i) : String(i + 1)
+}
+
+// 통합본에서 고치는 중인 칸. 글을 다 지워도 그 조각이 사라지지 않게 남긴다.
+const mergedFocus = ref(null)
+
+function segmentsOf(grid) {
+  return grid.activities
+      .filter(a => contentOf(a.id).trim() !== '' || mergedFocus.value === a.id)
+      .map(a => ({id: a.id, name: a.name, mark: markOf(grid, a.id), content: contentOf(a.id)}))
 }
 
 function bytesOf(grid) {
@@ -176,13 +201,15 @@ async function openHistory(act) {
 
         <template v-else>
           <p class="text-base text-ink-5 m-0 mb-4">
-            칸 사이로 글을 옮길 때는 잘라내기(Ctrl+X)와 붙여넣기(Ctrl+V)를 쓰세요. 손을 멈추면 1초 뒤 저장되고,
+            통합본이나 아래 칸 어디서 고쳐도 같은 칸이 고쳐집니다. 칸 사이로 글을 옮길 때는 잘라내기(Ctrl+X)와 붙여넣기(Ctrl+V)를 쓰세요. 손을 멈추면 1초 뒤 저장되고,
             칸을 처음 고칠 때 고치기 전 내용이 버전 기록(<History :size="14" class="inline align-[-2px]"/>)에 남습니다.
           </p>
 
-          <section v-for="grid in areas" :key="grid.area.id" class="mb-6 border border-line rounded-[10px] bg-surface">
+          <section v-for="grid in areas" :key="grid.area.id"
+                   class="mb-6 border-2 rounded-[10px] bg-surface overflow-hidden border-[color-mix(in_srgb,var(--area)_45%,transparent)]"
+                   :style="{'--area': areaColor(grid)}">
             <!-- 영역 머리 -->
-            <div class="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-line">
+            <div class="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-line border-l-[6px] border-l-[var(--area)] bg-[color-mix(in_srgb,var(--area)_12%,transparent)]">
               <h3 class="text-lg font-bold text-ink m-0">{{ grid.area.name }}</h3>
               <span class="text-base" :class="bytesOf(grid) > grid.area.byte_limit ? 'text-red font-semibold' : 'text-ink-5'">
                 {{ bytesOf(grid).toLocaleString() }} / {{ grid.area.byte_limit.toLocaleString() }} 바이트
@@ -195,19 +222,25 @@ async function openHistory(act) {
               </button>
             </div>
 
-            <!-- 합친 글 미리보기 -->
-            <div class="px-4 py-3 border-b border-line bg-base">
-              <p class="text-base text-ink-5 m-0 mb-1">합친 글 미리보기</p>
-              <p class="text-base text-ink-2 m-0 leading-relaxed whitespace-pre-wrap break-all">
-                {{ joinedPreview(grid.activities, contentOf, configStore.exportCSeparator ?? ' ') || '(아직 쓴 글이 없습니다)' }}
-              </p>
+            <!-- 통합본: 칸마다 색을 달리한 조각으로 이어 보여 주고, 그 자리에서 고친다 -->
+            <div class="px-4 py-3 border-b border-line bg-[color-mix(in_srgb,var(--area)_4%,var(--c-base))]">
+              <p class="text-base text-ink-5 m-0 mb-1.5">통합본 — 글을 눌러 바로 고칠 수 있습니다. 번호는 아래 칸 번호입니다.</p>
+              <MergedEditor
+                  v-if="segmentsOf(grid).length > 0"
+                  :key="selected.id"
+                  v-model:focused-id="mergedFocus"
+                  :segments="segmentsOf(grid)"
+                  :separator="configStore.exportCSeparator ?? ' '"
+                  @input="(id, value) => saver.onInput(id, selected.id, value)"
+              />
+              <p v-else class="text-base text-ink-5 m-0">(아직 쓴 글이 없습니다)</p>
             </div>
 
             <!-- 활동 칸 -->
             <div class="px-4 py-3 flex flex-col gap-3">
               <div v-for="act in cellsOf(grid).visible" :key="act.id">
                 <div class="flex items-center gap-2 mb-1">
-                  <span class="text-base font-semibold text-ink-3">{{ act.name }}</span>
+                  <span class="text-base font-semibold text-ink-3"><span class="text-[var(--area)] font-bold mr-1">{{ markOf(grid, act.id) }}</span>{{ act.name }}</span>
                   <button class="flex items-center p-1 rounded border-none bg-transparent text-ink-5 cursor-pointer hover:text-blue-2"
                           title="버전 기록" @click="openHistory(act)">
                     <History :size="15"/>
@@ -226,7 +259,7 @@ async function openHistory(act) {
                 <button v-for="act in cellsOf(grid).hidden" :key="act.id"
                         class="flex items-center gap-1 py-1 px-2 text-base rounded-lg border border-dashed border-line bg-transparent text-ink-4 cursor-pointer hover:border-blue/50 hover:text-blue-2"
                         title="이 칸을 펼쳐 쓰거나 붙여 넣기" @click="reveal(act.id)">
-                  <Plus :size="14"/>{{ act.name }}
+                  <Plus :size="14"/>{{ markOf(grid, act.id) }} {{ act.name }}
                 </button>
               </div>
             </div>

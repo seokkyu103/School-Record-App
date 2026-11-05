@@ -140,6 +140,20 @@ async function showReleaseNotesOrNavigate() {
     project.openWarnings.push(`이번에는 백업 파일을 만들지 못했습니다. ${e}`)
   }
 
+  // 고양외고 25기 1학년부 판: 담임 파일에서 쓰지 않는 동아리활동 영역을 지운다(비어 있을 때만, 파일마다 한 번).
+  // 백업 뒤에 하므로 지우기 전 상태가 백업본에 남는다. 실패해도 열기를 막지 않는다.
+  try {
+    await project.removeUnusedClubArea()
+  } catch (e) {
+    project.openWarnings.push(`비어 있는 동아리활동 영역을 정리하지 못했습니다. 그대로 써도 됩니다. ${e}`)
+  }
+  // 같은 판: 기본 유의어·치환 규칙의 바뀐 부분(뺀 말, 가운뎃점 묶음·규칙)을 파일마다 한 번 넣는다.
+  try {
+    await project.applyEditionDefaults()
+  } catch (e) {
+    project.openWarnings.push(`기본 유의어·치환 규칙을 새 판에 맞추지 못했습니다. 다음에 열 때 다시 시도합니다. ${e}`)
+  }
+
   // 버전 기록도 열기를 막으면 안 된다. 백업과 같은 이유다 — 이건 릴리즈 노트를
   // 한 번 띄우기 위한 기록일 뿐인데, DB에 쓰기를 하므로 읽기 전용 매체(USB·공유
   // 폴더)나 다른 인스턴스의 잠금에 걸려 실패할 수 있다. 막아 버리면 멀쩡한 파일이

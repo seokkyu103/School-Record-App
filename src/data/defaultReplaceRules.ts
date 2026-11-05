@@ -6,7 +6,7 @@ export interface DefaultReplaceRule {
 }
 
 // DEFAULT_REPLACE_RULES 항목을 추가/변경할 때마다 +1 (기존 사용자의 "기본 규칙 갱신" 버튼이 감지하는 기준값)
-export const DEFAULT_REPLACE_RULES_VERSION = 1
+export const DEFAULT_REPLACE_RULES_VERSION = 2
 
 export const DEFAULT_REPLACE_RULES: DefaultReplaceRule[] = [
   // 대시·물결·기호 → ASCII
@@ -73,4 +73,8 @@ export const DEFAULT_REPLACE_RULES: DefaultReplaceRule[] = [
   // 비가시 문자 제거
   { oldText: '[\\u00A0]', newText: ' ', priority: 51, isRegex: true },    // NBSP
   { oldText: '[\\u200B\\u200C\\u200D\\uFEFF]', newText: '', priority: 52, isRegex: true }, // ZWSP·ZWNJ·ZWJ·BOM
+
+  // 고양외고 25기 1학년부 판: 가운뎃점은 쉼표+띄어쓰기로(독서·토론 → 독서, 토론). 앞뒤 공백도 함께 정리한다.
+  // 모양이 비슷한 글자(・ ･ ㆍ ∙ ⋅)와 글머리표(•)도 같이 바꾼다. 위의 '•'→'·' 규칙(7)이 먼저 돌아도 결과는 같다.
+  { oldText: '\\s*[·・･ㆍ∙⋅•]\\s*', newText: ', ', priority: 53, isRegex: true },
 ]

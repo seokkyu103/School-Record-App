@@ -18,6 +18,7 @@ import {useSynonymStore} from '../stores/synonymStore'
 import {useAreaStore} from '../stores/area'
 import {useFileStore} from '../stores/file'
 import {performInspection} from '../services/synonymService'
+import {BUILTIN_INSPECT_GROUPS} from '../data/builtinInspectGroups'
 import DiffView from '../components/DiffView.vue'
 import WizardLayout from '../components/WizardLayout.vue'
 
@@ -29,13 +30,6 @@ const fileStore = useFileStore()
 
 const step = ref(1)
 
-function buildBeforeText(content, detectedWords) {
-  let result = content
-  for (const word of detectedWords) {
-    result = result.replaceAll(word, '')
-  }
-  return result
-}
 
 // ── Step 1: 그룹 관리 ─────────────────────────────────────────
 
@@ -165,12 +159,15 @@ function isSelected(id) {
   return selectedGroupIds.value.includes(id)
 }
 
+// 고를 수 있는 그룹 = 파일의 유의어 그룹 + 앱에 들어 있는 자동 점검 묶음(data/builtinInspectGroups.ts)
+const allGroupIds = computed(() => [...store.groups.map((g) => g.id), ...BUILTIN_INSPECT_GROUPS.map((g) => g.id)])
+
 const isAllSelected = computed(() =>
-    store.groups.length > 0 && selectedGroupIds.value.length === store.groups.length,
+    selectedGroupIds.value.length === allGroupIds.value.length,
 )
 
 function toggleAllGroups() {
-  selectedGroupIds.value = isAllSelected.value ? [] : store.groups.map((g) => g.id)
+  selectedGroupIds.value = isAllSelected.value ? [] : [...allGroupIds.value]
 }
 
 const selectedWordCount = computed(() => {
@@ -239,6 +236,7 @@ async function startSearch() {
         selectedGroupIds.value,
         store.groups,
         store.records,
+        BUILTIN_INSPECT_GROUPS,
     )
     step.value = 4
   } catch (e) {
@@ -552,7 +550,7 @@ onMounted(() => {
           </div>
           <button
               class="inline-flex items-center gap-1.5 py-1.5 px-3 rounded-[6px] border border-line-2 text-base cursor-pointer whitespace-nowrap shrink-0 transition-colors bg-raised text-ink-4 hover:bg-blue/10"
-              :disabled="store.groups.length === 0"
+              :disabled="allGroupIds.length === 0"
               @click="toggleAllGroups"
           >
             <Check :size="14"/>
@@ -582,6 +580,30 @@ onMounted(() => {
             <div class="flex-1 flex flex-col gap-0.5">
               <span class="text-base font-semibold text-ink">{{ group.name }}</span>
               <!-- caption: 그룹 단어 수 --><span class="text-xs text-ink-5">{{ group.items.length }}개 단어</span>
+            </div>
+            <ChevronRight :size="16" class="text-ink-5"/>
+          </label>
+          <label
+              v-for="group in BUILTIN_INSPECT_GROUPS"
+              :key="group.id"
+              class="flex items-center gap-3.5 py-3.5 px-[18px] bg-surface border border-line rounded-[10px] cursor-pointer transition-[border-color,background-color]"
+              :class="isSelected(group.id) ? 'border-blue bg-blue/[0.08]' : 'hover:border-line-2 hover:bg-raised'"
+          >
+            <input
+                type="checkbox"
+                :checked="isSelected(group.id)"
+                @change="toggleGroup(group.id)"
+                class="sr-only"
+            />
+            <div
+                class="flex items-center justify-center w-5 h-5 rounded-[5px] border-[1.5px] shrink-0 transition-[border-color,background-color]"
+                :class="isSelected(group.id) ? 'border-blue bg-blue text-white' : 'border-line-2 bg-transparent text-green'"
+            >
+              <Check v-if="isSelected(group.id)" :size="13"/>
+            </div>
+            <div class="flex-1 flex flex-col gap-0.5">
+              <span class="text-base font-semibold text-ink">{{ group.name }}</span>
+              <span class="text-base text-ink-5">{{ group.description }}</span>
             </div>
             <ChevronRight :size="16" class="text-ink-5"/>
           </label>
@@ -721,7 +743,7 @@ onMounted(() => {
             </tr>
             </thead>
             <tbody>
-            <tr v-for="{ record, detectedWords } in inspectResults" :key="record.id">
+            <tr v-for="{ record, detectedWords, before } in inspectResults" :key="record.id">
               <td class="py-2.5 px-3.5 align-top border-b border-raised text-ink-2 whitespace-nowrap text-xs text-ink-4">{{ record.grade || '' }}</td><!-- table cell preview -->
               <td class="py-2.5 px-3.5 align-top border-b border-raised text-ink-2 whitespace-nowrap text-xs text-ink-4">{{ record.class_num || '' }}</td><!-- table cell preview -->
               <td class="py-2.5 px-3.5 align-top border-b border-raised text-ink-2 whitespace-nowrap text-xs text-ink-4">{{ record.number || '—' }}</td><!-- table cell preview -->
@@ -730,7 +752,7 @@ onMounted(() => {
               <td class="py-2.5 px-3.5 align-top border-b border-raised text-ink-2 font-medium break-keep">{{ record.activity_name }}</td>
               <td class="cell-content py-2.5 px-3.5 align-top border-b border-raised text-ink-2 leading-relaxed break-all">
                 <DiffView
-                    :before="buildBeforeText(record.content, detectedWords)"
+                    :before="before"
                     :after="record.content"
                 />
               </td>

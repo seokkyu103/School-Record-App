@@ -1,5 +1,5 @@
 // DEFAULT_SYNONYMS에 그룹/단어를 추가·변경할 때마다 +1 (기존 사용자의 "기본 유의어 갱신" 버튼이 감지하는 기준값)
-export const DEFAULT_SYNONYMS_VERSION = 1
+export const DEFAULT_SYNONYMS_VERSION = 2
 
 export const DEFAULT_SYNONYMS: Record<string, string[]> = {
     유의어_기본: [
@@ -105,7 +105,6 @@ export const DEFAULT_SYNONYMS: Record<string, string[]> = {
         // 해외활동, 유학
         "어학연수",
         "해외활동",
-        "봉사활동",
         "장학생",
         "장학금",
         "대학교",
@@ -116,7 +115,6 @@ export const DEFAULT_SYNONYMS: Record<string, string[]> = {
         "해외 여행",
         "해외봉사",
         "해외 봉사",
-        "외국",
         "외국여행",
         "외국 여행",
         "외국대학",
@@ -188,7 +186,6 @@ export const DEFAULT_SYNONYMS: Record<string, string[]> = {
         "디즈니+",
         "디즈니플러스",
         "Vllo",
-        "블로",
         "Premiere Pro",
         "프리미어 프로",
         "Final Cut Pro",
@@ -213,7 +210,6 @@ export const DEFAULT_SYNONYMS: Record<string, string[]> = {
         "Twitter",
         "트위터",
         "Meta",
-        "메타",
         "Facebook",
         "페이스북",
         "ifland",
@@ -223,7 +219,6 @@ export const DEFAULT_SYNONYMS: Record<string, string[]> = {
         "ThinkerBell",
         "띵커벨",
         "Allo",
-        "알로",
         "Kahoot",
         "카훗",
         "Mentimeter",
@@ -269,7 +264,6 @@ export const DEFAULT_SYNONYMS: Record<string, string[]> = {
         "걸스카우트",
 
         // 일반 유의어
-        "ATP",
         "VR",
         "ESG",
         "ESG경영",
@@ -299,10 +293,8 @@ export const DEFAULT_SYNONYMS: Record<string, string[]> = {
         "코랩",
         "Colab",
         "아이폰",
-        "스마트폰",
         "TED",
         "테드",
-        "애플",
         "삼성",
         "Samsung",
         "HWP",
@@ -342,7 +334,6 @@ export const DEFAULT_SYNONYMS: Record<string, string[]> = {
         "조부모",
         "삼촌",
         "외삼촌",
-        "이모",
         "고모",
         "사촌",
         "친척",
@@ -386,4 +377,7 @@ export const DEFAULT_SYNONYMS: Record<string, string[]> = {
         '>',
         '`',
     ],
+
+    // 고양외고 25기 1학년부 판: 기재원칙 형식-05(주인님 확인 2026-11-05). 치환 규칙이 쉼표로 바꾼다.
+    '학교공통 형식-05 가운뎃점': ['·', '・', '･', 'ㆍ', '∙', '⋅'],
 }

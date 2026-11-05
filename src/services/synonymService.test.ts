@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { performInspection } from './synonymService'
+import { BUILTIN_INSPECT_GROUPS } from '../data/builtinInspectGroups'
 
 const group = (id: number, name: string, words: string[]) => ({
   id, name, created_at: '', items: words.map((word, i) => ({id: i + 1, group_id: id, word})),
@@ -64,8 +65,30 @@ describe('performInspection', () => {
     expect(performInspection([1], [group(1, 'g', ['a.b'])], [record(1, 'axb')])).toEqual([])
   })
 
-  it('영문 단어는 대소문자를 구분한다', () => {
-    expect(performInspection([1], [group(1, 'g', ['AI'])], [record(1, 'ai 활용')])).toEqual([])
+  it('영문 낱말은 대소문자를 가리지 않고 찾고, 글에 나온 모양 그대로 알려 준다', () => {
+    const result = performInspection([1], [group(1, 'g', ['ChatGPT'])], [record(1, 'chatgpt와 CHATGPT를 씀')])
+    expect(result[0].detectedWords).toEqual(['chatgpt', 'CHATGPT'])
+  })
+
+  it('영문 낱말은 다른 영어 낱말 안에서는 찾지 않는다', () => {
+    const groups = [group(1, 'g', ['UN', 'Meta'])]
+    expect(performInspection([1], groups, [record(1, 'understand metaverse')])).toEqual([])
+    expect(performInspection([1], groups, [record(1, '모의UN에서 meta를')])[0].detectedWords).toEqual(['UN', 'meta'])
+  })
+
+  it('한글 낱말은 지금처럼 낱말 안에서도 찾는다', () => {
+    const result = performInspection([1], [group(1, 'g', ['챗GPT', '토익'])], [record(1, '챗gpt로 토익점수')])
+    expect(result[0].detectedWords).toEqual(['챗gpt', '토익'])
+  })
+
+  it('긴 낱말을 먼저 찾는다', () => {
+    const result = performInspection([1], [group(1, 'g', ['Google', 'Google Classroom'])], [record(1, 'Google Classroom 활용')])
+    expect(result[0].detectedWords).toEqual(['Google Classroom'])
+  })
+
+  it('찾은 말을 뺀 글을 함께 돌려준다', () => {
+    const result = performInspection([1], [group(1, 'g', ['AI'])], [record(1, 'AI와 MAIN')])
+    expect(result[0].before).toBe('와 MAIN')
   })
 
   it('중복 단어는 한 번만 검사한다', () => {
@@ -73,4 +96,19 @@ describe('performInspection', () => {
     const result = performInspection([1, 2], groups, [record(1, '노력함')])
     expect(result[0].detectedWords).toEqual(['노력'])
   })
+
+  it('자동 묶음: 영어 낱말을 모두 찾는다', () => {
+    const result = performInspection([-1], [], [record(1, 'K-MOOC와 C++, Python으로 TED 시청')], BUILTIN_INSPECT_GROUPS)
+    expect(result[0].detectedWords).toEqual(['K-MOOC', 'C++', 'Python', 'TED'])
+  })
+
+  it('자동 묶음: 대학 이름 꼴을 찾는다', () => {
+    const result = performInspection([-2], [], [record(1, '한국대학교 탐방 뒤 서울대 진학을 희망함')], BUILTIN_INSPECT_GROUPS)
+    expect(result[0].detectedWords).toEqual(['한국대학교', '서울대 진학'])
+  })
+
+  it('자동 묶음은 고르지 않으면 쓰지 않는다', () => {
+    expect(performInspection([1], [group(1, 'g', ['노력'])], [record(1, 'Python 사용')], BUILTIN_INSPECT_GROUPS)).toEqual([])
+  })
 })
+

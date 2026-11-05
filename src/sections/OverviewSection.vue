@@ -18,7 +18,7 @@ const steps = [
     num: 2,
     icon: Layers,
     title: '영역(Area) 구성',
-    desc: '자율활동 · 진로활동 · 동아리활동 등 생기부 영역을 먼저 만들고 바이트 제한을 설정합니다.',
+    desc: '자율·자치활동 · 진로활동 · 행동특성 및 종합의견 등 생기부 영역을 먼저 만들고 바이트 제한을 설정합니다.',
     section: 'area',
     color: 'var(--c-violet)',
     bg: 'color-mix(in srgb, var(--c-violet) 7%, transparent)',
@@ -62,22 +62,10 @@ const exampleActivities = [
   {name: '직업인 특강 청취', desc: '외부 강사 연계'},
 ]
 
-const aiActivities = [
-  {name: '머신러닝 실습', desc: '모델 학습 및 결과 분석'},
-  {name: 'AI 윤리 토론', desc: '사회적 영향 탐구 활동'},
-  {name: '프로젝트 발표', desc: '팀 기반 문제 해결 발표'},
-]
-
 const homeroomAreas = [
-  {name: '자율활동', activities: ['체육대회', '현장체험학습', '학급자치 활동', '1학기 독서 토론의 날']},
-  {name: '동아리활동', activities: ['○○ 동아리 활동 내용', '자율동아리 참여', '동아리 발표회']},
-  {name: '진로활동', activities: ['진로상담 프로그램', '직업인 특강', '전공탐색 캠프']},
-]
-
-const subjectActivities = [
-  {name: '수행평가 1', desc: '탐구 보고서 작성'},
-  {name: '수행평가 2', desc: '수학 프로젝트 발표'},
-  {name: '수업 태도 및 참여도', desc: '모둠 토론 · 질문 참여'},
+  {name: '자율·자치활동', activities: ['수요독서토론', '학교 행사(자율·자치)']},
+  {name: '진로활동', activities: ['주제탐구활동', '프런티어 인턴십 활동', '학교 행사(진로)']},
+  {name: '행동특성 및 종합의견', activities: ['행동특성 및 종합의견']},
 ]
 </script>
 
@@ -175,45 +163,6 @@ const subjectActivities = [
             각 Activity마다 학생별로 기록을 작성하면, 합산 문장이 <strong class="text-violet font-semibold">진로활동</strong> 항목으로 완성됩니다.
           </div>
         </div>
-
-        <!-- 인공지능기초 예시 -->
-        <div class="border-2 border-blue/35 rounded-modal bg-blue/[0.04] px-8 py-7 flex flex-col gap-5">
-          <div class="flex items-center gap-3.5">
-            <!-- badge: Area 섹션 라벨 --><span class="text-sm font-bold tracking-[0.06em] text-blue bg-blue/[0.16] border border-blue/35 rounded-md px-3 py-1">Area</span>
-            <span class="text-[26px] font-extrabold text-ink">인공지능기초</span>
-            <!-- badge: byte 제한 라벨 --><span class="text-sm text-ink-4 ml-auto border border-line-2 rounded-md px-3 py-1">최대 1,500 byte</span>
-          </div>
-
-          <div class="text-[15px] text-ink-4 pb-1 border-b border-line">
-            아래 Activity들의 기록이 합쳐져 이 영역 하나를 구성합니다.
-          </div>
-
-          <div class="grid gap-3 grid-cards-200">
-            <div
-                v-for="act in aiActivities"
-                :key="act.name"
-                class="flex items-center gap-3.5 px-[18px] py-3.5 bg-surface border border-blue/25 rounded-xl transition-colors hover:border-blue/50"
-            >
-              <div class="w-2.5 h-2.5 rounded-full bg-blue flex-shrink-0 opacity-75"/>
-              <div class="min-w-0">
-                <div class="text-base font-semibold text-ink-2 whitespace-nowrap overflow-hidden text-ellipsis">{{ act.name }}</div>
-                <div class="text-base text-ink-5 mt-[3px]">{{ act.desc }}</div>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-3.5 px-[18px] py-3.5 bg-transparent border border-dashed border-line-2 rounded-xl">
-              <div class="w-2.5 text-center text-base text-ink-5 flex-shrink-0">＋</div>
-              <div class="min-w-0">
-                <div class="text-base font-semibold whitespace-nowrap overflow-hidden text-ellipsis text-ink-5">활동 더 추가 가능</div>
-                <div class="text-base text-ink-5 mt-[3px]">원하는 만큼</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="text-[15px] text-ink-4 pt-1 border-t border-line leading-[1.75]">
-            각 Activity마다 학생별로 기록을 작성하면, 합산 문장이 <strong class="text-blue font-semibold">인공지능기초</strong> 항목으로 완성됩니다.
-          </div>
-        </div>
       </div>
 
       <!-- 담임교사 활용 가이드 -->
@@ -223,7 +172,7 @@ const subjectActivities = [
           <h2 class="text-[24px] font-bold text-ink m-0">담임교사로 활용하기</h2>
         </div>
         <p class="text-base text-ink-3 leading-[1.85] m-0">
-          담임교사는 <strong class="text-ink-2 font-bold">자율활동 · 동아리활동 · 진로활동</strong> 3개 영역(Area)의 생기부를 작성합니다.
+          담임교사는 <strong class="text-ink-2 font-bold">자율·자치활동 · 진로활동 · 행동특성 및 종합의견</strong> 3개 영역(Area)의 생기부를 작성합니다.
           각 영역은 학생이 참여한 개별 행사 혹은 프로그램, 즉 <strong class="text-ink-2 font-bold">활동(Activity)</strong>의 기록을
           하나로 합쳐서 완성됩니다. 지도교사들이 엑셀로 제공한 기재 문장을
           <strong class="text-ink-2 font-bold">가져오기(Import)</strong> 탭으로 불러오면, 활동별 문장이 자동으로 채워지고
@@ -234,13 +183,13 @@ const subjectActivities = [
           <div class="flex items-center gap-2.5 flex-1 min-w-[200px]">
             <!-- badge: 영역 정의 라벨 뱃지 --><span class="text-sm font-bold rounded-md px-3 py-[5px] whitespace-nowrap text-violet bg-violet/[0.12] border border-violet/30">영역 (Area)</span>
             <span class="text-[15px] text-ink-5 flex-shrink-0">→</span>
-            <span class="text-[15px] text-ink-3">자율활동 · 동아리활동 · 진로활동</span>
+            <span class="text-[15px] text-ink-3">자율·자치활동 · 진로활동 · 행동특성 및 종합의견</span>
           </div>
           <div class="w-px h-8 bg-line-2 flex-shrink-0"/>
           <div class="flex items-center gap-2.5 flex-1 min-w-[200px]">
             <!-- badge: 활동 정의 라벨 뱃지 --><span class="text-sm font-bold rounded-md px-3 py-[5px] whitespace-nowrap text-violet bg-violet/[0.12] border border-violet/30">활동 (Activity)</span>
             <span class="text-[15px] text-ink-5 flex-shrink-0">→</span>
-            <span class="text-[15px] text-ink-3">체육대회, 현장체험학습, 진로상담 프로그램 …</span>
+            <span class="text-[15px] text-ink-3">수요독서토론, 주제탐구활동, 학교 행사 …</span>
           </div>
         </div>
 
@@ -266,61 +215,6 @@ const subjectActivities = [
           지도교사에게 기재 문장을 <strong class="text-green/80 font-semibold">엑셀 파일</strong>로 받아 <strong class="text-green/80 font-semibold">가져오기(Import)</strong> 탭에서
           불러오면 활동별 문장이 자동으로 채워집니다. 영역 바이트를 초과하는 항목은 즉시 표시되므로
           빠르게 파악하고 조절할 수 있습니다.
-        </div>
-      </div>
-
-      <!-- 교과교사 활용 가이드 -->
-      <div class="flex flex-col gap-5">
-        <div class="flex items-center gap-3.5">
-          <!-- badge: 교과교사 역할 뱃지 --><span class="text-sm font-bold tracking-[0.05em] rounded-md px-[13px] py-1 flex-shrink-0 text-amber bg-amber/[0.12] border border-amber/30">교과교사</span>
-          <h2 class="text-[24px] font-bold text-ink m-0">교과교사로 활용하기</h2>
-        </div>
-        <p class="text-base text-ink-3 leading-[1.85] m-0">
-          교과교사는 담당 과목의 <strong class="text-ink-2 font-bold">세부능력 및 특기사항(세특)</strong>을 작성합니다.
-          세특 하나가 <strong class="text-ink-2 font-bold">영역(Area)</strong>이 되고, 수행평가 · 수업태도처럼 세특을 구성하는
-          개별 항목이 <strong class="text-ink-2 font-bold">활동(Activity)</strong>이 됩니다. 항목마다 문장을 별도로 작성한 뒤
-          합산 바이트를 확인하며 완성도 높은 세특을 만들 수 있습니다.
-        </p>
-
-        <div class="flex items-center bg-base border border-line-2 rounded-xl px-6 py-[18px] flex-wrap gap-3">
-          <div class="flex items-center gap-2.5 flex-1 min-w-[200px]">
-            <!-- badge: 영역 정의 라벨 뱃지 --><span class="text-sm font-bold rounded-md px-3 py-[5px] whitespace-nowrap text-violet bg-violet/[0.12] border border-violet/30">영역 (Area)</span>
-            <span class="text-[15px] text-ink-5 flex-shrink-0">→</span>
-            <span class="text-[15px] text-ink-3">세부능력 및 특기사항 (과목명)</span>
-          </div>
-          <div class="w-px h-8 bg-line-2 flex-shrink-0"/>
-          <div class="flex items-center gap-2.5 flex-1 min-w-[200px]">
-            <!-- badge: 활동 정의 라벨 뱃지 --><span class="text-sm font-bold rounded-md px-3 py-[5px] whitespace-nowrap text-violet bg-violet/[0.12] border border-violet/30">활동 (Activity)</span>
-            <span class="text-[15px] text-ink-5 flex-shrink-0">→</span>
-            <span class="text-[15px] text-ink-3">수행평가 1, 수행평가 2, 수업 태도 …</span>
-          </div>
-        </div>
-
-        <div class="border-2 border-amber/30 rounded-2xl bg-amber/[0.03] px-6 py-[22px] flex flex-col gap-3.5">
-          <div class="flex items-center gap-2.5">
-            <!-- badge: Area 소형 뱃지 --><span class="text-xs font-bold tracking-[0.06em] text-amber bg-amber/[0.14] border border-amber/35 rounded-[5px] px-[9px] py-[3px] flex-shrink-0">Area</span>
-            <span class="text-[17px] font-bold text-ink">수학 세부능력 및 특기사항</span>
-            <!-- badge: byte 제한 라벨 --><span class="text-sm text-ink-4 ml-auto border border-line-2 rounded-md px-2.5 py-[3px] whitespace-nowrap">최대 1,500 byte</span>
-          </div>
-          <div class="flex flex-col gap-2">
-            <div v-for="act in subjectActivities" :key="act.name" class="flex items-start gap-2.5">
-              <span class="w-2 h-2 rounded-full bg-amber flex-shrink-0 mt-[5px] opacity-70"/>
-              <div>
-                <div class="text-[15px] font-medium text-ink-2 leading-[1.5]">{{ act.name }}</div>
-                <div class="text-base text-ink-5 mt-[2px]">{{ act.desc }}</div>
-              </div>
-            </div>
-          </div>
-          <div class="text-base text-ink-4 pt-3 border-t border-line leading-[1.75]">
-            세 활동의 문장을 합치면 <strong class="text-amber font-semibold">수학 세특 영역</strong>이 완성됩니다.
-          </div>
-        </div>
-
-        <div
-            class="text-[15px] text-ink-3 bg-amber/[0.05] rounded-lg px-[18px] py-3.5 leading-[1.75] border border-amber/[0.18] border-l-[3px] border-l-amber"
-        >
-          과목별로 프로젝트를 따로 만들거나, 한 프로젝트 안에 여러 과목을 영역으로 묶어 관리할 수 있습니다.
-          학생 수가 많을수록 격자형 입력 화면이 큰 도움이 됩니다.
         </div>
       </div>
 

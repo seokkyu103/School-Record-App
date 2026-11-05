@@ -77,6 +77,8 @@ fn main() {
             get_configs,
             set_config,
             check_and_update_app_version,
+            remove_unused_club_area,
+            apply_edition_defaults,
             get_encryption_status,
             unlock_encryption,
             enable_encryption,

@@ -19,17 +19,27 @@ const REQUEST_TIMEOUT_MS = 10_000
  * 열리기 때문에 허용된다 — 그 모달을 클릭 없이 뜨게 만들면 그 순간 약속이 깨진다.
  * 앱 시작·라우트 진입·타이머처럼 클릭이 없는 자리에서는 절대 부르지 말 것.
  */
+/**
+ * 판 번호 비교. `0.3.1-g25.4`처럼 숫자 사이에 점·하이픈·글자가 섞여 있어도 숫자만 차례로 비교한다.
+ * a가 크면 양수, 같으면 0, 작으면 음수.
+ */
+export function compareVersions(a, b) {
+  const nums = (v) => (String(v ?? '').match(/\d+/g) ?? []).map(Number)
+  const x = nums(a)
+  const y = nums(b)
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    const d = (x[i] ?? 0) - (y[i] ?? 0)
+    if (d !== 0) return d
+  }
+  return 0
+}
+
 export const useUpdateStore = defineStore('update', () => {
   // 'idle' | 'checking' | 'latest' | 'found' | 'error'
   const status = ref('idle')
   const currentVersion = ref('')
   const latestVersion = ref('')
   const releaseUrl = ref('')
-
-  /** 앞의 v를 떼고 비교한다. 태그는 `v0.3.0`, 앱 버전은 `0.3.0`으로 들어온다. */
-  function normalize(version) {
-    return String(version ?? '').replace(/^v/, '').trim()
-  }
 
   async function loadCurrentVersion() {
     if (!currentVersion.value) {
@@ -70,7 +80,8 @@ export const useUpdateStore = defineStore('update', () => {
 
       latestVersion.value = data.tag_name
       releaseUrl.value = data.html_url
-      status.value = normalize(data.tag_name) === normalize(currentVersion.value) ? 'latest' : 'found'
+      // 같다/다르다만 보면, 새 판을 아직 공개하지 않았을 때(초안) 공개된 옛 판을 새 버전으로 띄운다.
+      status.value = compareVersions(data.tag_name, currentVersion.value) > 0 ? 'found' : 'latest'
     } catch {
       // 인터넷이 없는 환경에서도 모든 기능이 정상 동작해야 한다. 오류는 모달 안에서만
       // 알리고 앱의 다른 동작에는 영향을 주지 않는다.

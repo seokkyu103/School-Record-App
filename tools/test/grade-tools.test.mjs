@@ -1,4 +1,6 @@
 // 학년부 도구 시험. 가짜 자료만 쓰고 결과는 임시 폴더에 만든다.
+import {DEFAULT_REPLACE_RULES_VERSION} from '../../src/data/defaultReplaceRules.ts'
+import {DEFAULT_SYNONYMS_VERSION} from '../../src/data/defaultSynonyms.ts'
 import fs from 'node:fs'
 import path from 'node:path'
 import {DatabaseSync} from 'node:sqlite'
@@ -48,8 +50,8 @@ describe('grade-setup', () => {
           .toEqual(['행동특성 및 종합의견'])
       const conf = Object.fromEntries(db.prepare('SELECT config_key, config_value FROM APP_CONFIGS').all().map(r => [r.config_key, r.config_value]))
       expect(Object.keys(conf).some(k => k.startsWith('encryption'))).toBe(false)
-      expect(conf.synonym_version).toBe('1')
-      expect(conf.replace_rules_version).toBe('1')
+      expect(conf.synonym_version).toBe(String(DEFAULT_SYNONYMS_VERSION))
+      expect(conf.replace_rules_version).toBe(String(DEFAULT_REPLACE_RULES_VERSION))
       // 학교 공통 점검 묶음: 단어+변형은 들어가고 정규식 패턴은 빠진다
       const words = db.prepare(`SELECT si.word FROM SynonymItem si JOIN SynonymGroup sg ON sg.id = si.group_id
                                 WHERE sg.name = '학교공통 금지-01 공인어학시험' ORDER BY si.word`).all().map(r => r.word)

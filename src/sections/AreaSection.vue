@@ -119,7 +119,7 @@ async function handleStudentSaved(studentIds) {
       <div class="flex items-start justify-between px-10 py-9 border-b border-line shrink-0 gap-4">
         <div>
           <h2 class="text-[22px] font-bold text-ink m-0 mb-[6px]">영역(Area) 관리</h2>
-          <p class="text-base text-ink-3 m-0">자율활동, 진로활동, 동아리활동, 세부능력특기사항 등 생기부 대분류 영역을 설정합니다.</p>
+          <p class="text-base text-ink-3 m-0">자율·자치활동, 진로활동, 행동특성 및 종합의견 등 생기부 대분류 영역을 설정합니다.</p>
         </div>
         <button
           class="flex items-center gap-2 px-5 py-[10px] rounded-xl bg-blue border-none text-white text-base font-semibold cursor-pointer whitespace-nowrap shrink-0 transition-colors duration-150 hover:bg-blue-2 shadow-[0_4px_16px_color-mix(in_srgb,var(--c-blue)_20%,transparent)]"
