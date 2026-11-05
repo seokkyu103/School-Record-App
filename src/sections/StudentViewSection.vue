@@ -22,7 +22,8 @@ const loading = ref(true)
 const loadError = ref('')
 const copyError = ref('')
 const selectedId = ref(null)
-const showList = ref(true)
+// 목록은 숨긴 채 연다. 상담 중에 이 화면을 열어도 다른 학생 이름이 바로 보이지 않게 한다.
+const showList = ref(false)
 const showAllCells = ref(false)
 // 이 학생에서 펼친 빈 칸(활동 id). 학생을 바꾸면 비운다.
 const revealed = ref(new Set())
@@ -92,7 +93,8 @@ function segmentsOf(grid) {
 }
 
 function bytesOf(grid) {
-  return areaBytes(grid.activities, contentOf)
+  // '합친 글 복사'로 나가는 글과 같은 구분 글자로 센다.
+  return areaBytes(grid.activities, contentOf, configStore.exportCSeparator ?? ' ')
 }
 
 function reveal(activityId) {
@@ -158,7 +160,7 @@ async function openHistory(act) {
         <button class="flex items-center gap-1.5 py-1.5 px-3 text-base rounded-lg border border-line bg-surface text-ink-2 cursor-pointer hover:border-blue/40"
                 @click="showList = !showList">
           <component :is="showList ? PanelLeftClose : PanelLeftOpen" :size="16"/>
-          {{ showList ? '목록 숨기기(상담용)' : '목록 보기' }}
+          {{ showList ? '목록 숨기기(상담용)' : '학생 목록 보기' }}
         </button>
         <button class="flex items-center py-1.5 px-2 rounded-lg border border-line bg-surface text-ink-2 cursor-pointer disabled:opacity-40 disabled:cursor-default"
                 :disabled="selectedIndex <= 0" title="이전 학생" @click="move(-1)">

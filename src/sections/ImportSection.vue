@@ -133,7 +133,8 @@ const canGoNext = computed(() => {
     if (fileType.value === 'A' && !activityNameReady.value) return false
     return required.every(f => m[f] !== null)
   }
-  if (step.value === 4) return extractedActivities.value.length > 0
+  // 새 활동은 영역을 골라야 넘어간다. 영역 없이 만들면 기록 화면에 보이지 않아 가져온 글을 잃은 것처럼 보인다.
+  if (step.value === 4) return extractedActivities.value.length > 0 && newActivitiesMissingArea.value.length === 0
   if (step.value === 5) return !previewLoading.value
   return false
 })
@@ -188,6 +189,11 @@ const teacherEditedCount = computed(() =>
 )
 const newActivityNames = computed(() =>
     extractedActivities.value.filter(name => activityMatchMap.value[name] === 0)
+)
+const newActivitiesMissingArea = computed(() =>
+    dbAreas.value.length === 0
+        ? []
+        : newActivityNames.value.filter(name => !(newActivityAreaMap.value[name] > 0))
 )
 const checkedChangedCount = computed(() =>
     changedPreviewItems.value.filter(item => checkedKeys.value.has(item.key)).length
@@ -1108,7 +1114,9 @@ function resetWizard() {
         <!-- 새로 만들 활동의 영역 연결. 연결하지 않으면 기록 화면에 나타나지 않는다. -->
         <div v-if="newActivityNames.length > 0" class="mt-6">
           <p class="text-base font-semibold text-ink-2 m-0 mb-1.5">새로 만들 활동을 넣을 영역</p>
-          <p class="text-base text-ink-5 m-0 mb-3">영역을 고르지 않으면 활동만 만들어지고 기록 화면에는 나타나지 않습니다.</p>
+          <p class="text-base m-0 mb-3" :class="newActivitiesMissingArea.length > 0 ? 'text-amber' : 'text-ink-5'">
+            활동마다 영역을 골라야 다음 단계로 넘어갑니다. 고른 영역의 생기부 작성 화면에 칸이 생깁니다.
+          </p>
           <div class="flex flex-col border border-line rounded-[10px] overflow-hidden">
             <div v-for="actName in newActivityNames" :key="'area-' + actName"
                  class="grid items-center gap-3 py-2.5 px-4 border-b border-line/70 last:border-b-0 grid-mapper">
@@ -1116,7 +1124,7 @@ function resetWizard() {
               <span class="text-base text-ink-5 text-center">→</span>
               <select class="py-[7px] px-2.5 bg-surface border border-line rounded-lg text-ink text-base outline-none cursor-pointer w-full focus:border-blue/50"
                       v-model="newActivityAreaMap[actName]">
-                <option :value="0">연결 안 함</option>
+                <option :value="0" disabled>영역을 고르세요</option>
                 <option v-for="a in dbAreas" :key="a.id" :value="a.id">{{ a.name }}</option>
               </select>
             </div>
@@ -1344,7 +1352,7 @@ function resetWizard() {
         </div>
         <!-- 반별 파일에는 반 전원이 미리 들어 있다. 학생이 새로 생겼다면 다른 반 행이 섞였을 수 있다. -->
         <p v-if="importResult.students_created > 0" class="text-base text-amber m-0 max-w-[520px] text-center leading-relaxed">
-          명단에 없던 학생 {{ importResult.students_created }}명이 새로 추가되었습니다. 다른 반 자료가 섞이지 않았는지 학생(Student) 관리에서 확인해 주세요.
+          명단에 없던 학생 {{ importResult.students_created }}명이 새로 추가되었습니다. 다른 반 자료가 섞이지 않았는지 왼쪽 학생(Students) 메뉴에서 확인해 주세요.
         </p>
         <p v-if="areaLinkError" class="text-base text-red m-0 max-w-[520px] text-center leading-relaxed">{{ areaLinkError }}</p>
         <button

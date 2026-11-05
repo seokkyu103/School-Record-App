@@ -54,9 +54,17 @@ export function areasOfStudent(grids: AreaGrid[], studentId: number): AreaGrid[]
   return grids.filter(g => g.students.some(s => s.id === studentId))
 }
 
-/** 한 영역에서 그 학생 칸의 바이트 합. 기록 화면의 학생별 합계와 같은 셈(칸마다 byteLength를 더함)이다. */
-export function areaBytes(activities: ActivityLike[], contentOf: (activityId: number) => string): number {
-  return activities.reduce((sum, a) => sum + byteLength(contentOf(a.id)), 0)
+/**
+ * 한 영역에서 그 학생 몫의 바이트 합. **복사·내보내기로 실제 나가는 글**(joinedPreview)을 센다.
+ * 칸마다 더하면 칸 사이 구분 글자가 빠져, 화면에서는 제한 안인데 NEIS에 붙이면 넘친다.
+ * 기록 화면의 학생별 합계도 이 함수를 쓴다.
+ */
+export function areaBytes(
+    activities: ActivityLike[],
+    contentOf: (activityId: number) => string,
+    separator: string = ' ',
+): number {
+  return byteLength(joinedPreview(activities, contentOf, separator))
 }
 
 /** 합친 글 미리보기. 내보내기·기록 화면 미리보기처럼 빈 칸을 빼고 줄바꿈을 띄어쓰기로 바꿔 잇는다. */

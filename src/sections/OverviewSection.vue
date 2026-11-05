@@ -1,55 +1,57 @@
 ﻿<script setup>
-import {BookOpen, ChevronRight, Layers, PenLine, Upload, Users} from '@lucide/vue'
+import {ChevronRight, ClipboardCopy, Download, IdCard, PenLine, ScanSearch} from '@lucide/vue'
 
 const emit = defineEmits(['navigate'])
 
+// 고양외고 25기 1학년부 판: 받은 파일에 학생·영역·공통 활동 칸이 이미 들어 있다.
+// 원본의 "학생 등록 → 영역 → 활동 만들기" 순서를 따르면 칸이 중복되므로 실제 쓰는 순서로 바꿨다.
 const steps = [
   {
     num: 1,
-    icon: Users,
-    title: '학생(Students) 등록',
-    desc: '학년 · 반 · 번호 · 이름을 등록합니다. 엑셀 파일로 명렬표를 일괄 불러올 수 있습니다.',
-    section: 'student',
-    color: 'var(--c-blue)',
-    bg: 'color-mix(in srgb, var(--c-blue) 7%, transparent)',
-    border: 'color-mix(in srgb, var(--c-blue) 25%, transparent)',
-  },
-  {
-    num: 2,
-    icon: Layers,
-    title: '영역(Area) 구성',
-    desc: '자율·자치활동 · 진로활동 · 행동특성 및 종합의견 등 생기부 영역을 먼저 만들고 바이트 제한을 설정합니다.',
-    section: 'area',
-    color: 'var(--c-violet)',
-    bg: 'color-mix(in srgb, var(--c-violet) 7%, transparent)',
-    border: 'color-mix(in srgb, var(--c-violet) 25%, transparent)',
-  },
-  {
-    num: 3,
-    icon: BookOpen,
-    title: '활동(Activity) 생성',
-    desc: '생기부 각 영역 안에 들어갈 세부 활동을 만들고 해당 영역과 연결합니다.',
-    section: 'activity',
-    color: 'var(--c-violet)',
-    bg: 'color-mix(in srgb, var(--c-violet) 7%, transparent)',
-    border: 'color-mix(in srgb, var(--c-violet) 25%, transparent)',
-  },
-  {
-    num: 4,
     icon: PenLine,
-    title: '생기부 작성',
-    desc: '학생별 · 활동별 생기부 문장을 셀 단위로 입력합니다. 바이트 제한을 자동으로 표시합니다.',
+    title: '바로 쓰기 — 생기부 작성(Write)',
+    desc: '우리 반 학생과 영역, 공통 활동 칸이 이미 들어 있습니다. 새로 만들 필요 없이 칸을 눌러 씁니다.',
     section: 'record',
     color: 'var(--c-amber)',
     bg: 'color-mix(in srgb, var(--c-amber) 7%, transparent)',
     border: 'color-mix(in srgb, var(--c-amber) 25%, transparent)',
   },
   {
+    num: 2,
+    icon: Download,
+    title: '행사 엑셀 가져오기(Import)',
+    desc: '받은 수합 엑셀을 가져오면 그 활동 칸이 생기고 학생 글이 들어갑니다. 처음 보는 활동은 넣을 영역을 고릅니다.',
+    section: 'import',
+    color: 'var(--c-blue)',
+    bg: 'color-mix(in srgb, var(--c-blue) 7%, transparent)',
+    border: 'color-mix(in srgb, var(--c-blue) 25%, transparent)',
+  },
+  {
+    num: 3,
+    icon: IdCard,
+    title: '학생별 보기(Student)',
+    desc: '한 학생의 영역을 한 화면에서 보고 고칩니다. 바이트가 넘으면 빨갛게 표시됩니다.',
+    section: 'studentView',
+    color: 'var(--c-violet)',
+    bg: 'color-mix(in srgb, var(--c-violet) 7%, transparent)',
+    border: 'color-mix(in srgb, var(--c-violet) 25%, transparent)',
+  },
+  {
+    num: 4,
+    icon: ScanSearch,
+    title: '점검 — 유의어 점검·중복 확인',
+    desc: '유의어 점검으로 학교 공통 금지어와 영어를 찾고, 중복 확인으로 학생끼리 비슷한 글을 찾습니다.',
+    section: 'inspect',
+    color: 'var(--c-violet)',
+    bg: 'color-mix(in srgb, var(--c-violet) 7%, transparent)',
+    border: 'color-mix(in srgb, var(--c-violet) 25%, transparent)',
+  },
+  {
     num: 5,
-    icon: Upload,
-    title: '엑셀로 내보내기',
-    desc: '완성된 생기부 문장을 엑셀 파일로 저장합니다.',
-    section: 'export',
+    icon: ClipboardCopy,
+    title: 'NEIS로 옮기기',
+    desc: '학생별 보기에서 영역마다 합친 글 복사를 눌러 NEIS에 붙여 넣습니다.',
+    section: 'studentView',
     color: 'var(--c-green)',
     bg: 'color-mix(in srgb, var(--c-green) 7%, transparent)',
     border: 'color-mix(in srgb, var(--c-green) 25%, transparent)',
@@ -81,8 +83,8 @@ const homeroomAreas = [
         </div>
         <h1 class="text-[46px] font-extrabold text-ink m-0 leading-[1.25] tracking-[-0.025em]">5단계로 완성하는<br>체계적인 생기부 작성</h1>
         <p class="text-[17px] text-ink-3 m-0 leading-[1.85]">
-          학생 명렬표 등록부터 영역 구성, 활동 생성, 생기부 작성, 내보내기까지<br>
-          아래 순서대로 진행하면 학생별 학교생활기록부 문장을 손쉽게 완성할 수 있습니다.
+          받은 파일에는 우리 반 학생과 영역, 공통 활동 칸이 이미 들어 있습니다.<br>
+          아래 순서대로 쓰고 점검한 뒤 NEIS로 옮기면 됩니다.
         </p>
       </div>
 

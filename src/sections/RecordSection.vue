@@ -6,6 +6,7 @@ import {useAreaStore} from '../stores/area'
 import {useRecordStore} from '../stores/record'
 import {useConfigStore} from '../stores/configStore'
 import {byteLength} from '../services/recordText'
+import {areaBytes} from '../services/studentView'
 import CellHistoryModal from '../components/CellHistoryModal.vue'
 import QuickReplaceModal from '../components/QuickReplaceModal.vue'
 
@@ -536,12 +537,10 @@ function isOverLimit(activityId, studentId) {
 const totalBytesCache = computed(() => {
   if (!recordStore.gridData) return new Map()
   const map = new Map()
+  // 학생 복사(copyStudentRecord)로 나가는 글 그대로 센다 — 칸 사이 구분 글자 포함.
+  const separator = configStore.exportCSeparator ?? ' '
   for (const student of recordStore.gridData.students) {
-    let total = 0
-    for (const act of recordStore.gridData.activities) {
-      total += byteLength(getCellContent(act.id, student.id))
-    }
-    map.set(student.id, total)
+    map.set(student.id, areaBytes(recordStore.gridData.activities, id => getCellContent(id, student.id), separator))
   }
   return map
 })

@@ -25,9 +25,22 @@ describe('areasOfStudent', () => {
 })
 
 describe('areaBytes', () => {
-  it('칸마다 바이트를 더한다(한글 3바이트)', () => {
+  it('복사되는 합친 글을 센다 — 칸 사이 구분 글자 포함, 빈 칸은 뺌', () => {
     const contents: Record<number, string> = {1: '가나', 2: 'ab'}
-    expect(areaBytes([{id: 1, name: 'a'}, {id: 2, name: 'b'}, {id: 3, name: 'c'}], id => contents[id] ?? '')).toBe(8)
+    const acts = [{id: 1, name: 'a'}, {id: 2, name: 'b'}, {id: 3, name: 'c'}]
+    // '가나' 6 + ' ' 1 + 'ab' 2 = 9
+    expect(areaBytes(acts, id => contents[id] ?? '')).toBe(9)
+    // 구분 글자가 한글이면 그만큼 더 센다: 6 + 3 + 2
+    expect(areaBytes(acts, id => contents[id] ?? '', '및')).toBe(11)
+  })
+
+  it('복사처럼 칸 안 줄바꿈은 띄어쓰기 1바이트로 센다', () => {
+    const contents: Record<number, string> = {1: 'a\nb'}
+    expect(areaBytes([{id: 1, name: 'a'}], id => contents[id] ?? '')).toBe(3)
+  })
+
+  it('글이 없으면 0', () => {
+    expect(areaBytes([{id: 1, name: 'a'}], () => '')).toBe(0)
   })
 })
 

@@ -595,6 +595,8 @@ onMounted(async () => {
 
         <!-- 오류 -->
         <div v-if="previewError" class="msg-error mb-4">{{ previewError }}</div>
+        <!-- 적용이 실패하면 3단계에 머문다. 오류를 여기에 보이지 않으면 바뀐 줄 알고 넘어간다. -->
+        <div v-if="applyError" class="msg-error mb-4">적용하지 못했습니다. 글은 바뀌지 않았습니다. ({{ applyError }})</div>
 
         <!-- diff 목록 -->
         <div v-if="previewItems.length > 0" class="bg-surface border border-line rounded-[10px] p-4">
