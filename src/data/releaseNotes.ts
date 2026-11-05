@@ -10,6 +10,13 @@
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '0.3.1-g25.6',
+    date: '2026-11-05',
+    improvements: [
+      '왼쪽 메뉴 맨 위에 밝은 화면·어두운 화면 바꾸기 단추를 두었습니다. 어느 화면에서든 바로 바꿀 수 있습니다.',
+    ],
+  },
+  {
     version: '0.3.1-g25.5',
     date: '2026-11-05',
     features: [
