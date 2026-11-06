@@ -93,8 +93,8 @@ function segmentsOf(grid) {
       .map(a => ({id: a.id, name: a.name, mark: markOf(grid, a.id), content: contentOf(a.id)}))
 }
 
-// 한 학생 안에서 다른 칸과 겹치는 문장(영역이 달라도). 통합본에 칠하고, 칸 이름 옆과 위쪽 안내에 보인다.
-// 판정 기준은 중복 확인 화면의 '한 학생 안' 기본값과 같다.
+// 학생 내 중복: 다른 칸과 중복되는 문장(영역이 달라도). 통합본에 표시하고, 칸 이름 옆과 위쪽 안내에 보인다.
+// 판정 기준은 중복 확인 화면의 '학생 내 중복' 기본값과 같다.
 const cellNames = computed(() => {
   const m = new Map()
   for (const grid of areas.value) {
@@ -112,7 +112,7 @@ const overlaps = computed(() => {
   return overlapsByCell(cells)
 })
 
-// 겹치는 칸 짝(중복 없이, 화면 순서대로)
+// 중복되는 칸 짝(한 번씩, 화면 순서대로)
 const overlapPairs = computed(() => {
   const order = [...cellNames.value.keys()]
   const out = []
@@ -135,7 +135,7 @@ function highlightsOf(grid) {
 
 function overlapTitle(activityId) {
   const o = overlaps.value.get(String(activityId))
-  return o ? `겹치는 칸: ${o.others.map(k => cellNames.value.get(k)).join(', ')}` : ''
+  return o ? `중복되는 칸: ${o.others.map(k => cellNames.value.get(k)).join(', ')}` : ''
 }
 
 function bytesOf(grid) {
@@ -253,10 +253,10 @@ async function openHistory(act) {
             칸을 처음 고칠 때 고치기 전 내용이 버전 기록(<History :size="14" class="inline align-[-2px]"/>)에 남습니다.
           </p>
 
-          <!-- 다른 칸과 겹치는 문장 -->
+          <!-- 학생 내 중복 문장 -->
           <div v-if="overlapPairs.length" class="mb-4 py-2.5 px-4 rounded-lg border border-amber/40 bg-amber/[0.08] text-base">
             <p class="flex items-center gap-2 m-0 font-semibold text-amber">
-              <CopyCheck :size="16" class="shrink-0"/>다른 칸과 겹치는 문장이 있습니다 — 통합본에 노란 물결 밑줄로 표시했습니다.
+              <CopyCheck :size="16" class="shrink-0"/>다른 영역·활동과 중복되는 문장이 있습니다. 통합본에 노란색 밑줄로 표시했습니다.
             </p>
             <ul class="m-0 mt-1 pl-7 text-ink-3">
               <li v-for="([a, b], i) in overlapPairs" :key="i">{{ a }} ↔ {{ b }}</li>
@@ -302,7 +302,7 @@ async function openHistory(act) {
                   <span class="text-base font-semibold text-ink-3"><span class="text-[var(--area)] font-bold mr-1">{{ markOf(grid, act.id) }}</span>{{ act.name }}</span>
                   <span v-if="overlaps.has(String(act.id))"
                         class="text-sm font-semibold py-0 px-1.5 rounded-[5px] border text-amber bg-amber/[0.10] border-amber/40"
-                        :title="overlapTitle(act.id)">겹침</span>
+                        :title="overlapTitle(act.id)">중복</span>
                   <button class="flex items-center p-1 rounded border-none bg-transparent text-ink-5 cursor-pointer hover:text-blue-2"
                           title="버전 기록" @click="openHistory(act)">
                     <History :size="15"/>

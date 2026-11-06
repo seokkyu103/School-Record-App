@@ -7,17 +7,17 @@ import {DEFAULT_SIMILARITY_OPTIONS, DEFAULT_WITHIN_THRESHOLD, findSimilarities, 
 import DiffView from '../components/DiffView.vue'
 
 // 중복 확인(고양외고 25기 1학년부 판). 판정은 services/similarity.ts.
-// 한 학생 안: 한 학생의 활동 칸끼리(영역이 달라도) 견준다. 학생 간: 같은 활동에서 학생끼리 견준다.
+// 학생 내 중복: 한 학생의 활동 칸끼리(영역이 달라도) 견준다. 학생 간 중복: 같은 활동에서 학생끼리 견준다.
 // 기록은 유의어 점검과 같은 조회(get_all_records_for_inspect)로 읽는다 — 영역 배정까지 반영된 목록이다.
 
 const areaStore = useAreaStore()
 const synonymStore = useSynonymStore()
 
 const THRESHOLD_MIN = 40
-const mode = ref('within')     // 'within'(한 학생 안) | 'between'(학생 간)
+const mode = ref('within')     // 'within'(학생 내 중복) | 'between'(학생 간 중복)
 const areaId = ref(0)          // 0 = 모든 영역
 const unit = ref('activity')   // 'activity' | 'area' (학생 간에서만)
-// 유사 기준은 비교 대상마다 따로 둔다(한 학생 안은 말만 바꾼 문장도 잡으려고 낮게).
+// 유사 기준은 확인 유형마다 따로 둔다(학생 내 중복은 표현만 바꾼 문장도 찾도록 낮게).
 const thresholds = ref({
   within: Math.round(DEFAULT_WITHIN_THRESHOLD * 100),
   between: Math.round(DEFAULT_SIMILARITY_OPTIONS.threshold * 100),
@@ -110,7 +110,7 @@ function togglePair(i) {
   openPairs.value = s
 }
 
-/** 글에서 겹친 문장을 표시하기 위해 조각으로 나눈다. */
+/** 글에서 중복 문장을 표시하기 위해 조각으로 나눈다. */
 function segments(text, matched) {
   if (!matched.length) return [{text, hit: false}]
   const out = []
@@ -136,8 +136,8 @@ function segments(text, matched) {
       <div class="flex flex-col">
         <h2 class="text-[22px] font-bold text-ink m-0 mb-1.5">중복 확인(Duplicate)</h2>
         <p class="text-base text-ink-3 m-0">
-          <b class="text-ink-2">한 학생 안</b>: 한 학생의 자율·자치, 진로, 행발 등 칸끼리 같은 글이나 말만 바꾼 문장을 찾습니다.<br>
-          <b class="text-ink-2">학생 간</b>: 같은 활동에서 학생끼리 같거나 어미·조사만 바꾼 문장을 찾습니다.
+          <b class="text-ink-2">학생 내 중복</b>: 한 학생의 기록에서 영역·활동 사이에 같은 문장이나 표현만 바꾼 문장을 찾습니다.<br>
+          <b class="text-ink-2">학생 간 중복</b>: 같은 활동에서 학생끼리 같거나 어미·조사만 바꾼 문장을 찾습니다.
         </p>
       </div>
     </div>
@@ -145,10 +145,10 @@ function segments(text, matched) {
     <div class="flex-1 overflow-y-auto px-10 py-8">
       <!-- 조건 -->
       <div class="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 items-center mb-6 text-base text-ink-2">
-        <label class="text-ink-4">비교 대상</label>
+        <label class="text-ink-4">확인 유형</label>
         <div class="flex gap-4">
-          <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" value="within" v-model="mode" class="accent-blue">한 학생 안(칸끼리)</label>
-          <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" value="between" v-model="mode" class="accent-blue">학생 간</label>
+          <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" value="within" v-model="mode" class="accent-blue">학생 내 중복(영역·활동 간)</label>
+          <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" value="between" v-model="mode" class="accent-blue">학생 간 중복</label>
         </div>
 
         <label class="text-ink-4">영역</label>
@@ -168,7 +168,7 @@ function segments(text, matched) {
         <label class="text-ink-4">유사 기준</label>
         <div class="flex items-center gap-2">
           <input type="number" :min="THRESHOLD_MIN" max="100" v-model.number="thresholds[mode]" class="w-20 py-[5px] px-2 bg-surface border border-line rounded-lg text-ink text-base">
-          <span class="text-ink-5">% 이상 (높일수록 거의 같은 것만{{ mode === 'within' ? ' — 말만 바꿔 다시 쓴 문장까지 잡으려고 낮게 둡니다' : '' }})</span>
+          <span class="text-ink-5">% 이상 (높일수록 거의 같은 것만{{ mode === 'within' ? ' — 표현만 바꾼 문장까지 찾도록 낮게 설정했습니다' : '' }})</span>
         </div>
 
         <template v-if="mode === 'between'">
@@ -219,7 +219,7 @@ function segments(text, matched) {
         <div v-if="result.pairs.length === 0"
              class="flex flex-col items-center gap-2 py-14 text-center border border-dashed border-green/20 bg-green/[0.03] rounded-lg">
           <CopyCheck :size="40" class="text-green/40"/>
-          <p class="text-lg font-semibold text-green m-0">{{ result.mode === 'within' ? '칸끼리 겹치는 글이 없습니다' : '겹치는 학생이 없습니다' }}</p>
+          <p class="text-lg font-semibold text-green m-0">{{ result.mode === 'within' ? '학생 내 중복이 없습니다' : '학생 간 중복이 없습니다' }}</p>
         </div>
 
         <div v-else class="flex flex-col gap-3">
@@ -231,7 +231,7 @@ function segments(text, matched) {
               <template v-if="result.mode === 'within'">
                 <span class="font-bold text-ink whitespace-nowrap">{{ p.group }}</span>
                 <span class="font-semibold">{{ p.a.label }}</span><span class="text-ink-5">↔</span><span class="font-semibold">{{ p.b.label }}</span>
-                <span class="text-ink-5 ml-auto whitespace-nowrap">{{ p.kind === 'sentence' ? `겹친 문장 ${p.matches.length}개` : `유사 ${Math.round(p.score * 100)}%` }}</span>
+                <span class="text-ink-5 ml-auto whitespace-nowrap">{{ p.kind === 'sentence' ? `중복 문장 ${p.matches.length}개` : `유사 ${Math.round(p.score * 100)}%` }}</span>
               </template>
               <template v-else>
                 <span class="font-semibold">{{ p.a.label }}</span><span class="text-ink-5">↔</span><span class="font-semibold">{{ p.b.label }}</span>
@@ -251,9 +251,9 @@ function segments(text, matched) {
                   </template>
                 </div>
               </div>
-              <!-- 겹친 문장마다 다른 부분만 표시(빨강: 왼쪽에만, 초록: 오른쪽에만) -->
+              <!-- 중복 문장마다 다른 부분만 표시(빨강: 왼쪽에만, 초록: 오른쪽에만) -->
               <div v-if="p.matches.some(m => m.a !== m.b)" class="border-t border-line py-3 px-4 flex flex-col gap-2 bg-surface/60">
-                <p class="text-base text-ink-5 m-0">겹친 문장에서 다른 부분 (빨강: {{ p.a.label }}에만, 초록: {{ p.b.label }}에만)</p>
+                <p class="text-base text-ink-5 m-0">중복 문장에서 다른 부분 (빨강: {{ p.a.label }}에만, 초록: {{ p.b.label }}에만)</p>
                 <div v-for="(m, k) in p.matches.filter(m => m.a !== m.b)" :key="k" class="text-base">
                   <DiffView :before="m.a" :after="m.b"/>
                   <span class="text-ink-5 ml-2">({{ Math.round(m.score * 100) }}%)</span>
