@@ -1,11 +1,12 @@
 <script setup>
 import {computed, onMounted, ref, watch} from 'vue'
-import {AlertTriangle, Check, ChevronLeft, ChevronRight, Copy, Eye, EyeOff, History, PanelLeftClose, PanelLeftOpen, Plus} from '@lucide/vue'
+import {AlertTriangle, Check, ChevronLeft, ChevronRight, Copy, CopyCheck, Eye, EyeOff, History, PanelLeftClose, PanelLeftOpen, Plus} from '@lucide/vue'
 import {useAreaStore} from '../stores/area'
 import {useConfigStore} from '../stores/configStore'
 import {useStudentViewStore} from '../stores/studentView'
 import {useCellAutosave} from '../composables/useCellAutosave'
 import {areaBytes, areasOfStudent, collectStudents, joinedPreview, splitVisible} from '../services/studentView'
+import {overlapsByCell} from '../services/similarity'
 import CellHistoryModal from '../components/CellHistoryModal.vue'
 import MergedEditor from '../components/MergedEditor.vue'
 
@@ -90,6 +91,51 @@ function segmentsOf(grid) {
   return grid.activities
       .filter(a => contentOf(a.id).trim() !== '' || mergedFocus.value === a.id)
       .map(a => ({id: a.id, name: a.name, mark: markOf(grid, a.id), content: contentOf(a.id)}))
+}
+
+// 한 학생 안에서 다른 칸과 겹치는 문장(영역이 달라도). 통합본에 칠하고, 칸 이름 옆과 위쪽 안내에 보인다.
+// 판정 기준은 중복 확인 화면의 '한 학생 안' 기본값과 같다.
+const cellNames = computed(() => {
+  const m = new Map()
+  for (const grid of areas.value) {
+    // 활동 이름이 영역 이름과 같으면(행발 따위) 한 번만 쓴다.
+    for (const a of grid.activities) {
+      m.set(String(a.id), a.name === grid.area.name ? a.name : `${grid.area.name} ${markOf(grid, a.id)} ${a.name}`)
+    }
+  }
+  return m
+})
+
+const overlaps = computed(() => {
+  if (!selected.value) return new Map()
+  const cells = areas.value.flatMap(grid => grid.activities.map(a => ({key: String(a.id), content: contentOf(a.id)})))
+  return overlapsByCell(cells)
+})
+
+// 겹치는 칸 짝(중복 없이, 화면 순서대로)
+const overlapPairs = computed(() => {
+  const order = [...cellNames.value.keys()]
+  const out = []
+  for (const [key, o] of overlaps.value) {
+    for (const other of o.others) {
+      if (order.indexOf(key) < order.indexOf(other)) out.push([cellNames.value.get(key), cellNames.value.get(other)])
+    }
+  }
+  return out
+})
+
+function highlightsOf(grid) {
+  const out = {}
+  for (const a of grid.activities) {
+    const o = overlaps.value.get(String(a.id))
+    if (o) out[a.id] = o.sentences
+  }
+  return out
+}
+
+function overlapTitle(activityId) {
+  const o = overlaps.value.get(String(activityId))
+  return o ? `겹치는 칸: ${o.others.map(k => cellNames.value.get(k)).join(', ')}` : ''
 }
 
 function bytesOf(grid) {
@@ -207,6 +253,16 @@ async function openHistory(act) {
             칸을 처음 고칠 때 고치기 전 내용이 버전 기록(<History :size="14" class="inline align-[-2px]"/>)에 남습니다.
           </p>
 
+          <!-- 다른 칸과 겹치는 문장 -->
+          <div v-if="overlapPairs.length" class="mb-4 py-2.5 px-4 rounded-lg border border-amber/40 bg-amber/[0.08] text-base">
+            <p class="flex items-center gap-2 m-0 font-semibold text-amber">
+              <CopyCheck :size="16" class="shrink-0"/>다른 칸과 겹치는 문장이 있습니다 — 통합본에 노란 물결 밑줄로 표시했습니다.
+            </p>
+            <ul class="m-0 mt-1 pl-7 text-ink-3">
+              <li v-for="([a, b], i) in overlapPairs" :key="i">{{ a }} ↔ {{ b }}</li>
+            </ul>
+          </div>
+
           <section v-for="grid in areas" :key="grid.area.id"
                    class="mb-6 border-2 rounded-[10px] bg-surface overflow-hidden border-[color-mix(in_srgb,var(--area)_45%,transparent)]"
                    :style="{'--area': areaColor(grid)}">
@@ -232,6 +288,7 @@ async function openHistory(act) {
                   :key="selected.id"
                   v-model:focused-id="mergedFocus"
                   :segments="segmentsOf(grid)"
+                  :highlights="highlightsOf(grid)"
                   :separator="configStore.exportCSeparator ?? ' '"
                   @input="(id, value) => saver.onInput(id, selected.id, value)"
               />
@@ -243,6 +300,9 @@ async function openHistory(act) {
               <div v-for="act in cellsOf(grid).visible" :key="act.id">
                 <div class="flex items-center gap-2 mb-1">
                   <span class="text-base font-semibold text-ink-3"><span class="text-[var(--area)] font-bold mr-1">{{ markOf(grid, act.id) }}</span>{{ act.name }}</span>
+                  <span v-if="overlaps.has(String(act.id))"
+                        class="text-sm font-semibold py-0 px-1.5 rounded-[5px] border text-amber bg-amber/[0.10] border-amber/40"
+                        :title="overlapTitle(act.id)">겹침</span>
                   <button class="flex items-center p-1 rounded border-none bg-transparent text-ink-5 cursor-pointer hover:text-blue-2"
                           title="버전 기록" @click="openHistory(act)">
                     <History :size="15"/>

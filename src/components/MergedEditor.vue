@@ -1,5 +1,6 @@
 <script setup>
-import {nextTick, ref, watch} from 'vue'
+import {nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
+import {rangesOf, setHighlight} from '../services/textHighlight'
 
 // 학생별 보기의 통합본(고양외고 25기 1학년부 판).
 // 한 영역의 칸들을 한 덩어리 글처럼 이어 보여 주되, 칸마다 따로 고칠 수 있는 조각으로 둔다.
@@ -10,6 +11,8 @@ const props = defineProps({
   // [{id, mark, name, content}] — 글이 있는 칸만, 영역 안 순서대로
   segments: {type: Array, required: true},
   separator: {type: String, default: ' '},
+  // {칸 id: [다른 칸과 겹치는 문장]} — 노란 물결 밑줄로 칠한다(DOM은 바꾸지 않는다).
+  highlights: {type: Object, default: () => ({})},
 })
 const emit = defineEmits(['input'])
 
@@ -42,7 +45,28 @@ watch(() => props.segments.map(s => [s.id, s.content]), async () => {
     const el = els.get(s.id)
     if (el && s.id !== focusedId.value && el.textContent !== s.content) el.textContent = s.content
   }
+  paintOverlaps()
 }, {deep: true})
+
+// 겹치는 문장 칠하기. 글을 다시 넣으면 글자 노드가 바뀌므로 그때마다 범위를 새로 만든다.
+const owner = {}
+
+function paintOverlaps() {
+  const ranges = []
+  for (const s of props.segments) {
+    const el = els.get(s.id)
+    const needles = props.highlights[s.id]
+    if (el && needles?.length) ranges.push(...rangesOf(el, needles))
+  }
+  setHighlight('sv-dup', owner, ranges)
+}
+
+watch(() => props.highlights, async () => {
+  await nextTick()
+  paintOverlaps()
+}, {deep: true})
+onMounted(() => nextTick(paintOverlaps))
+onBeforeUnmount(() => setHighlight('sv-dup', owner, []))
 
 function onInput(id, e) {
   // plaintext-only라 붙여 넣은 서식은 들어오지 않는다. innerText는 줄바꿈을 \n으로 준다.
@@ -53,7 +77,10 @@ function onBlur(id, e) {
   if (focusedId.value === id) focusedId.value = null
   // 브라우저가 남긴 <br> 따위를 걷어 내고 저장된 글과 같은 모양으로 맞춘다.
   const text = contentOf(id)
-  if (e.target.textContent !== text) e.target.textContent = text
+  if (e.target.textContent !== text) {
+    e.target.textContent = text
+    paintOverlaps()
+  }
 }
 
 const hoverId = ref(null)
@@ -102,5 +129,14 @@ const hoverId = ref(null)
   color: var(--area);
   font-weight: 700;
   margin-right: 2px;
+}
+</style>
+
+<style>
+/* 다른 칸과 겹치는 문장(학생별 보기). ::highlight는 범위 칠하기라 scoped로 둘 수 없다. */
+::highlight(sv-dup) {
+  background-color: color-mix(in srgb, var(--c-amber) 30%, transparent);
+  text-decoration: underline wavy var(--c-amber);
+  text-decoration-thickness: 1.5px;
 }
 </style>

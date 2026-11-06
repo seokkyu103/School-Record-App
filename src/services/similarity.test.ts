@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {dice, findSimilarities, normalizeForCompare, splitSentences} from './similarity'
+import {dice, findSimilarities, findWithinStudent, normalizeForCompare, overlapsByCell, splitSentences} from './similarity'
 
 const INTRO = '학급 자치 회의에서 학급 규칙을 정하는 토의에 참여함.'
 
@@ -88,5 +88,67 @@ describe('findSimilarities', () => {
     ])
     expect(pairs).toHaveLength(1)
     expect(pairs[0].kind).toBe('exact')
+  })
+})
+
+describe('한 학생 안(칸끼리)', () => {
+  const EVENT = '학급 체육대회에서 응원 문구를 정하는 회의를 이끌며 친구들의 의견을 모음.'
+  const EVENT_RETOLD = '체육대회 응원 문구를 정하는 회의를 이끌며 친구들의 의견을 고루 모으는 리더십을 보임.'
+  const OTHER = '‘침묵의 봄’을 읽고 환경 문제와 과학자의 책임을 주제로 토론에 참여함.'
+
+  function cell(student: number, cellKey: string, content: string) {
+    return {studentKey: `1-9-${student}`, studentLabel: `${student}번`, cellKey, cellLabel: cellKey, content}
+  }
+
+  it('같은 학생의 다른 영역에 말만 바꿔 쓴 문장을 찾는다', () => {
+    const pairs = findWithinStudent([
+      cell(1, '자율·자치 · 학교 행사', EVENT),
+      cell(1, '자율·자치 · 독서토론', OTHER),
+      cell(1, '행발', `성실하고 책임감이 강함. ${EVENT_RETOLD}`),
+    ])
+    expect(pairs).toHaveLength(1)
+    expect(pairs[0]).toMatchObject({group: '1번', a: {key: '자율·자치 · 학교 행사'}, b: {key: '행발'}})
+    expect(pairs[0].matches).toEqual([expect.objectContaining({a: EVENT, b: EVENT_RETOLD})])
+  })
+
+  it('잘라내지 않고 복사해 두 칸에 같은 글이 남으면 완전 일치', () => {
+    const pairs = findWithinStudent([cell(1, '독서토론', EVENT), cell(1, '학교 행사', EVENT)])
+    expect(pairs).toEqual([expect.objectContaining({kind: 'exact'})])
+  })
+
+  it('다른 학생끼리는 견주지 않는다', () => {
+    expect(findWithinStudent([cell(1, '학교 행사', EVENT), cell(2, '학교 행사', EVENT)])).toEqual([])
+  })
+
+  it('학생은 들어온 순서대로 묶어 돌려준다', () => {
+    const pairs = findWithinStudent([
+      cell(2, 'a', EVENT), cell(2, 'b', EVENT),
+      cell(1, 'a', OTHER), cell(1, 'b', OTHER),
+    ])
+    expect(pairs.map(p => p.group)).toEqual(['2번', '1번'])
+  })
+
+  it('기준을 올리면 말만 바꾼 문장은 빠진다', () => {
+    const records = [cell(1, 'a', EVENT), cell(1, 'b', EVENT_RETOLD)]
+    expect(findWithinStudent(records)).toHaveLength(1)
+    expect(findWithinStudent(records, {threshold: 0.9})).toEqual([])
+  })
+})
+
+describe('overlapsByCell(학생별 보기 표시용)', () => {
+  it('겹치는 문장을 양쪽 칸에 모두 넣고, 상대 칸을 알려 준다', () => {
+    const m = overlapsByCell([
+      {key: '1', content: '토론에서 상대 주장의 전제를 짚어 반론을 펼침. 학급 체육대회에서 응원 문구를 정하는 회의를 이끎.'},
+      {key: '2', content: '학급 체육대회에서 응원 문구를 정하는 회의를 이끎.'},
+      {key: '3', content: '맡은 일을 끝까지 책임지는 성실한 학생임.'},
+    ])
+    expect(m.get('1')).toEqual({sentences: ['학급 체육대회에서 응원 문구를 정하는 회의를 이끎.'], others: ['2']})
+    expect(m.get('2')).toEqual({sentences: ['학급 체육대회에서 응원 문구를 정하는 회의를 이끎.'], others: ['1']})
+    expect(m.has('3')).toBe(false)
+  })
+
+  it('한 칸 안의 비슷한 문장끼리는 표시하지 않는다', () => {
+    const m = overlapsByCell([{key: '1', content: '회의를 이끌며 의견을 모음. 회의를 이끌며 의견을 모음.'}])
+    expect(m.size).toBe(0)
   })
 })
