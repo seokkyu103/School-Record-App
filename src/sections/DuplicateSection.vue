@@ -144,7 +144,7 @@ function segments(text, matched) {
 
     <div class="flex-1 overflow-y-auto px-10 py-8">
       <!-- 조건 -->
-      <div class="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 items-center mb-6 text-base">
+      <div class="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 items-center mb-6 text-base text-ink-2">
         <label class="text-ink-4">비교 대상</label>
         <div class="flex gap-4">
           <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" value="within" v-model="mode" class="accent-blue">한 학생 안(칸끼리)</label>
